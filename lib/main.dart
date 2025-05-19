@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:questy/features/goal_management/domain/entities/goal_entity.dart';
+import 'package:questy/features/goal_management/domain/entities/step_entity.dart';
+import 'dart:math'; // For generating a random ID
 
 void main() {
   runApp(const MyApp());
@@ -30,20 +33,34 @@ class GoalInputScreen extends StatefulWidget {
 class _GoalInputScreenState extends State<GoalInputScreen> {
   final TextEditingController _goalController = TextEditingController();
   String? _errorMessage;
+  GoalEntity? _currentGoal;
 
   void _submitGoal() {
-    if (_goalController.text.trim().isEmpty) {
+    final goalDescription = _goalController.text.trim();
+    if (goalDescription.isEmpty) {
       setState(() {
         _errorMessage = 'Deskripsi tujuan tidak boleh kosong';
+        _currentGoal = null;
       });
     } else {
+      // Generate a simple random ID for now
+      final String randomId = Random().nextInt(100000).toString();
+      final newGoal = GoalEntity(
+        id: randomId,
+        description: goalDescription,
+        steps: [
+          StepEntity(title: 'Step 1', description: 'Complete the first part of ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 10, status: 'Pending'),
+          StepEntity(title: 'Step 2', description: 'Continue with ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 15, status: 'Pending'),
+          StepEntity(title: 'Step 3', description: 'Finalize ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 20, status: 'Pending'),
+        ],
+      );
       setState(() {
         _errorMessage = null;
+        _currentGoal = newGoal;
       });
-      // Later, we will add logic to process the goal
-      print('Goal Submitted: ${_goalController.text}');
-      // Potentially clear the text field after submission
-      // _goalController.clear();
+      print('Goal Submitted: ${_currentGoal!.description}');
+      print('Steps Generated: ${_currentGoal!.steps.length}');
+      _goalController.clear(); // Clear input after submission
     }
   }
 
@@ -57,10 +74,8 @@ class _GoalInputScreenState extends State<GoalInputScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          // Using crossAxisAlignment to stretch the TextField and Button horizontally
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            // Added some spacing at the top
             const SizedBox(height: 20),
             TextField(
               controller: _goalController,
@@ -71,7 +86,6 @@ class _GoalInputScreenState extends State<GoalInputScreen> {
                 errorText: _errorMessage,
               ),
               onChanged: (text) {
-                // Clear error message when user starts typing
                 if (_errorMessage != null && text.isNotEmpty) {
                   setState(() {
                     _errorMessage = null;
@@ -88,8 +102,24 @@ class _GoalInputScreenState extends State<GoalInputScreen> {
               ),
               child: const Text('Submit Goal'),
             ),
-            // This Spacer pushes the content to the top, if Column's mainAxisAlignment is start
-            // const Spacer(), 
+            const SizedBox(height: 30),
+            if (_currentGoal != null && _currentGoal!.steps.isNotEmpty)
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _currentGoal!.steps.length,
+                  itemBuilder: (context, index) {
+                    final step = _currentGoal!.steps[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: ListTile(
+                        title: Text(step.title),
+                        subtitle: Text('${step.description}\nEXP: ${step.exp} - Status: ${step.status}'),
+                        isThreeLine: true,
+                      ),
+                    );
+                  },
+                ),
+              ),
           ],
         ),
       ),
