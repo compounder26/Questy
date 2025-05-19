@@ -43,16 +43,31 @@ class _GoalInputScreenState extends State<GoalInputScreen> {
         _currentGoal = null;
       });
     } else {
-      // Generate a simple random ID for now
       final String randomId = Random().nextInt(100000).toString();
-      final newGoal = GoalEntity(
-        id: randomId,
-        description: goalDescription,
-        steps: [
+      List<StepEntity> steps = [];
+
+      // Mock AI for complex goal: "Buat video YouTube" should generate >5 steps
+      if (goalDescription.toLowerCase().contains("youtube")) {
+        for (int i = 1; i <= 6; i++) {
+          steps.add(StepEntity(
+            title: 'YouTube Step $i',
+            description: 'Detailed action for YouTube step $i of ${goalDescription.substring(0, min(goalDescription.length, 15))}...',
+            exp: 10 + (i * 2),
+            status: 'Pending',
+          ));
+        }
+      } else {
+        steps = [
           StepEntity(title: 'Step 1', description: 'Complete the first part of ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 10, status: 'Pending'),
           StepEntity(title: 'Step 2', description: 'Continue with ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 15, status: 'Pending'),
           StepEntity(title: 'Step 3', description: 'Finalize ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 20, status: 'Pending'),
-        ],
+        ];
+      }
+
+      final newGoal = GoalEntity(
+        id: randomId,
+        description: goalDescription,
+        steps: steps,
       );
       setState(() {
         _errorMessage = null;
@@ -60,7 +75,7 @@ class _GoalInputScreenState extends State<GoalInputScreen> {
       });
       print('Goal Submitted: ${_currentGoal!.description}');
       print('Steps Generated: ${_currentGoal!.steps.length}');
-      _goalController.clear(); // Clear input after submission
+      _goalController.clear();
     }
   }
 
@@ -81,7 +96,7 @@ class _GoalInputScreenState extends State<GoalInputScreen> {
               controller: _goalController,
               decoration: InputDecoration(
                 labelText: 'Goal Description',
-                hintText: 'E.g., Learn to play guitar',
+                hintText: 'E.g., Learn to play guitar or Buat video YouTube',
                 border: const OutlineInputBorder(),
                 errorText: _errorMessage,
               ),
