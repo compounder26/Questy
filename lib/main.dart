@@ -34,49 +34,63 @@ class _GoalInputScreenState extends State<GoalInputScreen> {
   final TextEditingController _goalController = TextEditingController();
   String? _errorMessage;
   GoalEntity? _currentGoal;
+  String? _clarificationMessage; // For ambiguous goals
 
   void _submitGoal() {
     final goalDescription = _goalController.text.trim();
+    setState(() { // Reset messages on new submission
+      _errorMessage = null;
+      _clarificationMessage = null;
+      _currentGoal = null;
+    });
+
     if (goalDescription.isEmpty) {
       setState(() {
         _errorMessage = 'Deskripsi tujuan tidak boleh kosong';
-        _currentGoal = null;
       });
-    } else {
-      final String randomId = Random().nextInt(100000).toString();
-      List<StepEntity> steps = [];
-
-      // Mock AI for complex goal: "Buat video YouTube" should generate >5 steps
-      if (goalDescription.toLowerCase().contains("youtube")) {
-        for (int i = 1; i <= 6; i++) {
-          steps.add(StepEntity(
-            title: 'YouTube Step $i',
-            description: 'Detailed action for YouTube step $i of ${goalDescription.substring(0, min(goalDescription.length, 15))}...',
-            exp: 10 + (i * 2),
-            status: 'Pending',
-          ));
-        }
-      } else {
-        steps = [
-          StepEntity(title: 'Step 1', description: 'Complete the first part of ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 10, status: 'Pending'),
-          StepEntity(title: 'Step 2', description: 'Continue with ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 15, status: 'Pending'),
-          StepEntity(title: 'Step 3', description: 'Finalize ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 20, status: 'Pending'),
-        ];
-      }
-
-      final newGoal = GoalEntity(
-        id: randomId,
-        description: goalDescription,
-        steps: steps,
-      );
-      setState(() {
-        _errorMessage = null;
-        _currentGoal = newGoal;
-      });
-      print('Goal Submitted: ${_currentGoal!.description}');
-      print('Steps Generated: ${_currentGoal!.steps.length}');
-      _goalController.clear();
+      return;
     }
+
+    // Mock AI for ambiguous goals
+    if (goalDescription.toLowerCase().contains("something") || 
+        goalDescription.toLowerCase().contains("anything")) {
+      setState(() {
+        _clarificationMessage = 'This goal seems a bit vague. Could you please provide more details?';
+      });
+      return;
+    }
+
+    final String randomId = Random().nextInt(100000).toString();
+    List<StepEntity> steps = [];
+
+    if (goalDescription.toLowerCase().contains("youtube")) {
+      for (int i = 1; i <= 6; i++) {
+        steps.add(StepEntity(
+          title: 'YouTube Step $i',
+          description: 'Detailed action for YouTube step $i of ${goalDescription.substring(0, min(goalDescription.length, 15))}...',
+          exp: 10 + (i * 2),
+          status: 'Pending',
+        ));
+      }
+    } else {
+      steps = [
+        StepEntity(title: 'Step 1', description: 'Complete the first part of ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 10, status: 'Pending'),
+        StepEntity(title: 'Step 2', description: 'Continue with ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 15, status: 'Pending'),
+        StepEntity(title: 'Step 3', description: 'Finalize ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 20, status: 'Pending'),
+      ];
+    }
+
+    final newGoal = GoalEntity(
+      id: randomId,
+      description: goalDescription,
+      steps: steps,
+    );
+    setState(() {
+      _currentGoal = newGoal;
+    });
+    print('Goal Submitted: ${_currentGoal!.description}');
+    print('Steps Generated: ${_currentGoal!.steps.length}');
+    _goalController.clear();
   }
 
   @override
@@ -96,14 +110,15 @@ class _GoalInputScreenState extends State<GoalInputScreen> {
               controller: _goalController,
               decoration: InputDecoration(
                 labelText: 'Goal Description',
-                hintText: 'E.g., Learn to play guitar or Buat video YouTube',
+                hintText: 'E.g., Learn to play guitar or I want to do something cool',
                 border: const OutlineInputBorder(),
                 errorText: _errorMessage,
               ),
               onChanged: (text) {
-                if (_errorMessage != null && text.isNotEmpty) {
+                if ((_errorMessage != null && text.isNotEmpty) || (_clarificationMessage != null && text.isNotEmpty)) {
                   setState(() {
                     _errorMessage = null;
+                    _clarificationMessage = null; // Clear clarification when user types
                   });
                 }
               },
@@ -117,7 +132,17 @@ class _GoalInputScreenState extends State<GoalInputScreen> {
               ),
               child: const Text('Submit Goal'),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
+            if (_clarificationMessage != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  _clarificationMessage!,
+                  style: TextStyle(color: Colors.orange.shade700, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            const SizedBox(height: 10),
             if (_currentGoal != null && _currentGoal!.steps.isNotEmpty)
               Expanded(
                 child: ListView.builder(
