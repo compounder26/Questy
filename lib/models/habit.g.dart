@@ -68,4 +68,4 @@ class HabitAdapter extends TypeAdapter<Habit> {
       other is HabitAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
-} 
+}
