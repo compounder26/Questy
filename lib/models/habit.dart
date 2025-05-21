@@ -42,7 +42,7 @@ class Habit extends HiveObject {
     this.weeklyTarget,
     this.weeklyProgress = 0,
     DateTime? lastUpdated,
-  }) : this.lastUpdated = lastUpdated ?? DateTime.now();
+  }) : lastUpdated = lastUpdated ?? DateTime.now();
 
   bool get isActive {
     if (endDate == null) return true;

@@ -2,25 +2,26 @@
 import 'package:flutter/material.dart';
 // Removed dart:async as Timer is no longer used
 import '../models/character.dart'; // Import the Character model
+import '../models/background.dart'; // Import the Background model
 
 // Define base dimensions for the character sprite
-const double _baseCharacterWidth = 32.0;
-const double _baseCharacterHeight = 48.0;
+const double _baseCharacterWidth = 120.0; // Increased for actual character images
+const double _baseCharacterHeight = 150.0; // Increased for actual character images
 // Define a multiplier for the display size
-const double _displaySizeMultiplier = 6.0; // Adjust this value to change character size
+const double _displaySizeMultiplier = 2.0; // Adjusted multiplier
 
 class CharacterDisplay extends StatefulWidget {
   final Character character;
   final bool animate;
-  final String backgroundAsset; // e.g., 'assets/images/backgrounds/farm.png'
-  // Removed characterScale property
+  final String? backgroundAsset; // Optional specific background path
+  final Background? background; // Optional background model
 
   const CharacterDisplay({
     super.key,
     required this.character,
     this.animate = false,
-    this.backgroundAsset = 'assets/images/backgrounds/default.png',
-    // Removed characterScale = 2.0
+    this.backgroundAsset, // Made optional
+    this.background, // Added background model
   });
 
   @override
@@ -74,8 +75,6 @@ class _CharacterDisplayState extends State<CharacterDisplay> with SingleTickerPr
     if (widget.character != oldWidget.character) {
       setState(() {}); // Ensure rebuild if necessary
     }
-
-    // No longer need to check for scale changes
   }
 
   @override
@@ -85,76 +84,69 @@ class _CharacterDisplayState extends State<CharacterDisplay> with SingleTickerPr
     super.dispose();
   }
 
-  // Helper to load images with placeholder - removed scale parameter
-  Widget _buildImageLayer(String assetPath) {
-    final displayWidth = _baseCharacterWidth * _displaySizeMultiplier;
-    final displayHeight = _baseCharacterHeight * _displaySizeMultiplier;
+  // Helper to load character images
+  Widget _buildCharacterImage(String assetPath) {
+    const displayWidth = _baseCharacterWidth * _displaySizeMultiplier;
+    const displayHeight = _baseCharacterHeight * _displaySizeMultiplier;
 
-    // Use a colored container as placeholder if image fails
-    Image image = Image.asset(
-        assetPath,
-        width: displayWidth,   // Set explicit width
-        height: displayHeight, // Set explicit height
-        fit: BoxFit.contain, // Adjust fit as needed
-        filterQuality: FilterQuality.none, // Crucial for pixel art
-         errorBuilder: (context, error, stackTrace) {
-           print("Error loading asset: $assetPath\n$error");
-          // Placeholder if image fails
-          return Container(
-            width: displayWidth, // Use calculated display width
-            height: displayHeight, // Use calculated display height
-            color: Colors.grey[300], // Use a default placeholder color
-             child: Center(child: Text('?', style: TextStyle(color: Colors.red))) // Indicate missing asset
-           );
-         },
-      );
-
-    return image;
+    return Image.asset(
+      assetPath,
+      width: displayWidth,
+      height: displayHeight,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high, // Changed to high for detailed character images
+      errorBuilder: (context, error, stackTrace) {
+        print("Error loading asset: $assetPath\n$error");
+        // Placeholder if image fails
+        return Container(
+          width: displayWidth,
+          height: displayHeight,
+          color: Colors.grey[300],
+          child: const Center(child: Text('Character image not found', style: TextStyle(color: Colors.red)))
+        );
+      },
+    );
   }
 
+  // Get the background asset path
+  String get _effectiveBackgroundAsset {
+    // Priority: explicit backgroundAsset > background model > default
+    if (widget.backgroundAsset != null) {
+      return widget.backgroundAsset!;
+    } else if (widget.background != null) {
+      return widget.background!.assetPath;
+    }
+    return 'assets/images/Background/pemandangan1.png'; // Default background
+  }
 
   @override
   Widget build(BuildContext context) {
     // Use AnimatedBuilder for smooth animation
     return AnimatedBuilder(
-      animation: _controller, // Animate based on controller
+      animation: _controller,
       builder: (context, child) {
         final currentOffset = widget.animate ? _animation.value : 0.0;
 
         return Container(
           // Background Image
           decoration: BoxDecoration(
-             // Add fallback color in case background image fails
-             color: Colors.grey[200], // Example fallback color
+            // Add fallback color in case background image fails
+            color: Colors.grey[200],
             image: DecorationImage(
-              image: AssetImage(widget.backgroundAsset),
+              image: AssetImage(_effectiveBackgroundAsset),
               fit: BoxFit.cover,
-              filterQuality: FilterQuality.none,
+              filterQuality: FilterQuality.high, // Changed to high for detailed backgrounds
               onError: (error, stackTrace) {
-                 print("Error loading background: ${widget.backgroundAsset}\n$error");
-                 // Consider adding setState here if background failure needs UI update
+                print("Error loading background: $_effectiveBackgroundAsset\n$error");
               }
             ),
           ),
-          // Add the Center widget back
           child: Center(
             child: Transform.translate(
               offset: Offset(currentOffset, 0), // Apply animation offset
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Body - No scale passed now
-                  _buildImageLayer(widget.character.bodyAsset),
-
-                  /* // Temporarily disable layers without assets
-                  _buildImageLayer(widget.character.clothingAsset),
-                  _buildImageLayer(widget.character.eyeAsset),
-                  _buildImageLayer(widget.character.hairAsset),
-                  */
-                ],
-              ),
+              child: _buildCharacterImage(widget.character.bodyAsset),
             ),
-          ), // End added Center
+          ),
         );
       },
     );

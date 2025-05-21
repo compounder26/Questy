@@ -4,15 +4,15 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 class DatabaseHelper {
-  static final _databaseName = "Habits.db";
-  static final _databaseVersion = 1;
+  static const _databaseName = "Habits.db";
+  static const _databaseVersion = 1;
 
-  static final table = 'habits';
+  static const table = 'habits';
 
-  static final columnId = '_id';
-  static final columnName = 'name';
-  static final columnType = 'type'; // e.g., daily, weekly, todo
-  static final columnCreatedAt = 'createdAt'; // Timestamp
+  static const columnId = '_id';
+  static const columnName = 'name';
+  static const columnType = 'type'; // e.g., daily, weekly, todo
+  static const columnCreatedAt = 'createdAt'; // Timestamp
 
   // Make this a singleton class
   DatabaseHelper._privateConstructor();

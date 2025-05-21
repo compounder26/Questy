@@ -12,7 +12,7 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  HabitType? _selectedFilter = null; // null means show all
+  HabitType? _selectedFilter; // null means show all
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +77,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
                 return ListTile(
                   title: Text('${habit.concisePromptTitle} ${habit.habitType == HabitType.goal ? '[Goal]' : '[Habit]'}'),
-                  subtitle: Text('Originally Added: ${habit.createdAt.toLocal().toString().split(' ')[0]}\n${status}'),
+                  subtitle: Text('Originally Added: ${habit.createdAt.toLocal().toString().split(' ')[0]}\n$status'),
                   isThreeLine: status.isNotEmpty,
                   // TODO: Add onTap to view details? (Original prompt, tasks etc.)
                   // onTap: () => _showHistoryDetail(context, habit),
