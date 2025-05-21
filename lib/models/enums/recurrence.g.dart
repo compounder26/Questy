@@ -48,4 +48,4 @@ class RecurrenceAdapter extends TypeAdapter<Recurrence> {
       other is RecurrenceAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
-} 
+}

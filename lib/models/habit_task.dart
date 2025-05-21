@@ -16,6 +16,8 @@ class HabitTask extends HiveObject { // Extend HiveObject
   bool isCompleted;
   @HiveField(5)
   DateTime? lastCompletedDate;
+  @HiveField(6)
+  int? pointsAwarded;
 
   HabitTask({
     required this.id,
@@ -24,5 +26,6 @@ class HabitTask extends HiveObject { // Extend HiveObject
     required this.estimatedTimeMinutes,
     this.isCompleted = false,
     this.lastCompletedDate,
+    this.pointsAwarded,
   });
 } 

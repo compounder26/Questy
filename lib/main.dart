@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
-import 'screens/profile_screen.dart';
 import 'services/ai_service.dart';
 import 'models/user.dart';
 import 'providers/habit_provider.dart';
 import 'providers/character_provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'services/user_service.dart';
 
 // Import models and generated adapters
 import 'models/habit.dart';
@@ -40,11 +40,16 @@ Future<void> main() async {
   await Hive.openBox<Habit>('habits'); // Open the box for Habits
   await Hive.openBox('preferences'); // Open the box for preferences
 
-  runApp(const MyApp());
+  // Load or create the user
+  User? savedUser = await UserService.loadUser();
+
+  runApp(MyApp(savedUser: savedUser));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final User? savedUser;
+  
+  const MyApp({super.key, this.savedUser});
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +59,7 @@ class MyApp extends StatelessWidget {
           create: (_) => AIService(),
         ),
         ChangeNotifierProvider<User>(
-          create: (_) => User(
+          create: (_) => savedUser ?? User(
             id: '1',
             name: 'User',
           ),
@@ -87,19 +92,11 @@ class MyApp extends StatelessWidget {
           appBarTheme: const AppBarTheme(
             backgroundColor: Color(0xFF1E1E1E),
           ),
-          navigationBarTheme: NavigationBarThemeData(
-            backgroundColor: const Color(0xFF1E1E1E),
-            indicatorColor: Colors.deepPurple.shade700,
-          ),
         ),
         darkTheme: ThemeData.dark(useMaterial3: true).copyWith(
           scaffoldBackgroundColor: const Color(0xFF121212),
           appBarTheme: const AppBarTheme(
             backgroundColor: Color(0xFF1E1E1E),
-          ),
-          navigationBarTheme: NavigationBarThemeData(
-            backgroundColor: const Color(0xFF1E1E1E),
-            indicatorColor: Colors.deepPurple.shade700,
           ),
         ),
         themeMode: ThemeMode.dark,
@@ -117,11 +114,9 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0;
-
+  // Updated to only include HomeScreen
   final List<Widget> _screens = [
     const HomeScreen(),
-    const ProfileScreen(),
   ];
 
   @override
@@ -133,26 +128,8 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: _screens[_selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: Theme.of(context).navigationBarTheme.backgroundColor,
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (int index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      body: _screens[0], // Always show the HomeScreen
+      // Removed bottomNavigationBar since we no longer need navigation
     );
   }
 }
