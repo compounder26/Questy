@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/habit_provider.dart';
-import '../models/habit.dart';
 import '../models/enums/habit_type.dart';
 import '../theme/app_theme.dart';
 import '../models/habit_task.dart';
+import '../utils/string_extensions.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -235,7 +235,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     border: Border.all(color: Colors.amber),
                   ),
                   child: Text(
-                    '+${task.pointsAwarded} pts',
+                    '+${task.pointsAwarded} ✯',
                     style: AppTheme.pixelBodyStyle.copyWith(
                       fontSize: 12,
                       color: Colors.amber,
@@ -255,8 +255,79 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ),
             ),
+          if (task.isCompleted && task.expAwarded != null && task.expAwarded! > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.lightBlue.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.lightBlue),
+                ),
+                child: Text(
+                  'EXP: +${task.expAwarded}',
+                  style: AppTheme.pixelBodyStyle.copyWith(
+                    fontSize: 12,
+                    color: Colors.lightBlue,
+                  ),
+                ),
+              ),
+            ),
+          if (task.isCompleted && task.attributesAwarded != null && task.attributesAwarded!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Attributes gained:',
+                    style: AppTheme.pixelBodyStyle.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: task.getAttributeChanges().map((attr) {
+                      // Get color for attribute
+                      Color attrColor = _getAttributeColor(attr.name);
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: attrColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: attrColor),
+                        ),
+                        child: Text(
+                          '${attr.name.capitalize()}: +${attr.amount}',
+                          style: AppTheme.pixelBodyStyle.copyWith(
+                            fontSize: 12,
+                            color: attrColor,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
   }
-} 
+  
+  Color _getAttributeColor(String attributeName) {
+    switch (attributeName.toLowerCase()) {
+      case 'health': return Colors.red;
+      case 'intelligence': return Colors.blue;
+      case 'cleanliness': return Colors.yellow;
+      case 'charisma': return Colors.cyan;
+      case 'unity': return Colors.green;
+      case 'power': return Colors.purple;
+      default: return Colors.grey;
+    }
+  }
+}
