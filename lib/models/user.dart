@@ -103,7 +103,8 @@ class User extends ChangeNotifier {
 
   // Method to attempt purchasing a reward
   bool purchaseReward(Reward reward) {
-    if (starCurrency >= reward.cost && !ownedRewardIds.contains(reward.id)) {
+    // Only check if user has enough stars - removed ownership check to allow multiple purchases
+    if (starCurrency >= reward.cost) {
       starCurrency -= reward.cost;
       
       // Handle special rewards with effects
@@ -126,17 +127,20 @@ class User extends ChangeNotifier {
         }
       }
       
-      // For consumable rewards, we might not want to add them to owned items
-      // But for this implementation, we're still tracking ownership
-      ownedRewardIds.add(reward.id);
+      // For permanent items, we still track that the item has been purchased at least once
+      // but don't prevent repurchasing
+      if (!ownedRewardIds.contains(reward.id)) {
+        ownedRewardIds.add(reward.id);
+      }
+      
       notifyListeners(); // Notify listeners about the change in starCurrency and rewards
       
       // Save user data to persistent storage
       UserService.saveUser(this);
       return true; // Purchase successful
     } else {
-      // Consider showing feedback why purchase failed (insufficient points or already owned)
-      return false; // Purchase failed
+      // Only fails if not enough stars
+      return false; // Purchase failed - insufficient funds
     }
   }
 

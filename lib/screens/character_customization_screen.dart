@@ -63,6 +63,7 @@ class _CharacterCustomizationScreenState extends State<CharacterCustomizationScr
                 character: _tempCharacter,
                 background: _tempBackground,
                 animate: true,
+                showInventoryButton: false, // Hide inventory button in customization screen
               ),
             ),
           ),
@@ -214,6 +215,7 @@ class _CharacterCustomizationScreenState extends State<CharacterCustomizationScr
                   child: CharacterDisplay(
                     character: gridCharacter,
                     animate: isSelected,
+                    showInventoryButton: false, // Hide inventory button in grid items
                   ),
                 ),
                 Padding(

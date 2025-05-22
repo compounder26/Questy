@@ -6,6 +6,8 @@ class Reward {
   final String description;
   final int cost;
   final String? type; // Optional reward type for special handling
+  final String? iconAsset; // Path to the icon image
+  final bool isPermanent; // Whether item goes to inventory or is consumed
   final Map<String, dynamic>? effectData; // Data for special effects
 
   Reward({
@@ -14,116 +16,146 @@ class Reward {
     required this.description,
     required this.cost,
     this.type,
+    this.iconAsset,
+    this.isPermanent = false, // Default to consumable
     this.effectData,
   });
 
   // Static list of available rewards
   static final List<Reward> availableRewards = [
+    // Consumable rewards
     Reward(
       id: const Uuid().v4(),
-      name: 'Relaxation Token',
-      description: 'Redeem for 30 minutes of guilt-free relaxation time.',
-      cost: 50,
-    ),
-    Reward(
-      id: const Uuid().v4(),
-      name: 'Netflix Episode Pass',
-      description: 'Watch one episode of your favorite show.',
-      cost: 75,
-    ),
-    Reward(
-      id: const Uuid().v4(),
-      name: 'Gaming Hour Coupon',
-      description: 'Enjoy one hour of uninterrupted gaming.',
-      cost: 100,
-    ),
-    Reward(
-      id: const Uuid().v4(),
-      name: 'Small Snack Treat',
-      description: 'Get yourself a small favorite snack.',
+      name: 'Minor Health Potion',
+      description:
+          'Restore 15% of your total health. A quick fix for minor injuries.',
       cost: 40,
+      iconAsset: 'assets/images/Items/items/small health potion.png',
+      isPermanent: false,
+      type: 'consumable',
+      effectData: {'healthRestore': 0.15},
     ),
     Reward(
       id: const Uuid().v4(),
-      name: 'Book Chapter Break',
-      description: 'Read one chapter of a non-work/study book.',
-      cost: 60,
-    ),
-    // Character attribute boosts
-    Reward(
-      id: const Uuid().v4(),
-      name: 'Health Elixir',
-      description: 'Boost your Health attribute by 2.0 points.',
-      cost: 120,
-      type: 'attribute_boost',
-      effectData: {'attribute': 'health', 'amount': 2.0},
+      name: 'Major Health Potion',
+      description:
+          'Restore 40% of your total health. For when battles get tough!',
+      cost: 100,
+      iconAsset: 'assets/images/Items/items/large health potion.png',
+      isPermanent: false,
+      type: 'consumable',
+      effectData: {'healthRestore': 0.40},
     ),
     Reward(
       id: const Uuid().v4(),
-      name: 'Intelligence Tome',
-      description: 'Boost your Intelligence attribute by 2.0 points.',
-      cost: 120,
-      type: 'attribute_boost',
-      effectData: {'attribute': 'intelligence', 'amount': 2.0},
+      name: 'Shield of Protection',
+      description:
+          'A sturdy shield that reduces damage taken by 15% for the next 3 encounters.',
+      cost: 200,
+      iconAsset: 'assets/images/Items/items/Shield.png',
+      isPermanent: true,
+      type: 'defense_boost',
+      effectData: {'damageReduction': 0.15, 'duration': 3},
     ),
     Reward(
       id: const Uuid().v4(),
-      name: 'Cleanliness Charm',
-      description: 'Boost your Cleanliness attribute by 2.0 points.',
-      cost: 120,
-      type: 'attribute_boost',
-      effectData: {'attribute': 'cleanliness', 'amount': 2.0},
+      name: 'Excalibur',
+      description:
+          'The legendary sword increases your attack power by 25%. Only the worthy can wield it.',
+      cost: 350,
+      iconAsset: 'assets/images/Items/items/excalibur.png',
+      isPermanent: true,
+      type: 'attack_boost',
+      effectData: {'attackBoost': 0.25},
     ),
     Reward(
       id: const Uuid().v4(),
-      name: 'Charisma Perfume',
-      description: 'Boost your Charisma attribute by 2.0 points.',
-      cost: 120,
-      type: 'attribute_boost',
-      effectData: {'attribute': 'charisma', 'amount': 2.0},
-    ),
-    Reward(
-      id: const Uuid().v4(),
-      name: 'Unity Crystal',
-      description: 'Boost your Unity attribute by 2.0 points.',
-      cost: 120,
-      type: 'attribute_boost',
-      effectData: {'attribute': 'unity', 'amount': 2.0},
-    ),
-    Reward(
-      id: const Uuid().v4(),
-      name: 'Power Gauntlet',
-      description: 'Boost your Power attribute by 2.0 points.',
-      cost: 120,
-      type: 'attribute_boost',
-      effectData: {'attribute': 'power', 'amount': 2.0},
-    ),
-    Reward(
-      id: const Uuid().v4(),
-      name: 'EXP Boost Scroll',
-      description: 'Instantly gain 100 EXP for your character.',
+      name: 'Enchanted Teddy Bear',
+      description:
+          'This cuddly companion increases your charisma by 3 points and brings comfort during stressful times.',
       cost: 150,
-      type: 'exp_boost',
-      effectData: {'amount': 100},
+      iconAsset: 'assets/images/Items/items/teddy bear.png',
+      isPermanent: true,
+      type: 'attribute_boost',
+      effectData: {'attribute': 'charisma', 'amount': 3.0},
+    ),
+    Reward(
+      id: const Uuid().v4(),
+      name: 'Magical Eraser',
+      description:
+          'Removes one failed task from your history. Everyone deserves a second chance!',
+      cost: 120,
+      iconAsset: 'assets/images/Items/items/eraser.png',
+      isPermanent: false,
+      type: 'task_eraser',
+      effectData: {'removeCount': 1},
+    ),
+    Reward(
+      id: const Uuid().v4(),
+      name: 'XP Booster',
+      description:
+          'Doubles all experience gained for the next 24 hours. Level up faster!',
+      cost: 250,
+      iconAsset: 'assets/images/Items/items/booster.png',
+      isPermanent: false,
+      type: 'exp_multiplier',
+      effectData: {'multiplier': 2, 'duration': 24}, // Duration in hours
+    ),
+    Reward(
+      id: const Uuid().v4(),
+      name: 'Star Coin Doubler',
+      description:
+          'Doubles all star currency earned for the next 48 hours. Get rich quick!',
+      cost: 300,
+      iconAsset: 'assets/images/Items/items/coin doubler.png',
+      isPermanent: false,
+      type: 'currency_multiplier',
+      effectData: {'multiplier': 2, 'duration': 48}, // Duration in hours
+    ),
+    Reward(
+      id: const Uuid().v4(),
+      name: 'Magical Cap',
+      description:
+          'This enchanted cap increases your intelligence by 3 points and helps you focus on tasks.',
+      cost: 180,
+      iconAsset: 'assets/images/Items/items/topi ajaib.png',
+      isPermanent: true,
+      type: 'attribute_boost',
+      effectData: {'attribute': 'intelligence', 'amount': 3.0},
+    ),
+    Reward(
+      id: const Uuid().v4(),
+      name: 'Time Ticker',
+      description:
+          'Adds an extra hour to your day - use it to complete an overdue task without penalty!',
+      cost: 280,
+      iconAsset: 'assets/images/Items/items/ticker.png',
+      isPermanent: false,
+      type: 'time_extension',
+      effectData: {'extraHours': 1},
     ),
   ];
 
-  // Optional: Methods for JSON serialization if needed later
+  // Methods for JSON serialization
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'description': description,
-    'cost': cost,
-    'type': type,
-    'effectData': effectData,
-  };
-  
+        'id': id,
+        'name': name,
+        'description': description,
+        'cost': cost,
+        'type': type,
+        'iconAsset': iconAsset,
+        'isPermanent': isPermanent,
+        'effectData': effectData,
+      };
+
   factory Reward.fromJson(Map<String, dynamic> json) => Reward(
-    id: json['id'],
-    name: json['name'],
-    description: json['description'],
-    cost: json['cost'],
-    type: json['type'],
-    effectData: json['effectData'],
-  );
-} 
+        id: json['id'],
+        name: json['name'],
+        description: json['description'],
+        cost: json['cost'],
+        type: json['type'],
+        iconAsset: json['iconAsset'],
+        isPermanent: json['isPermanent'] ?? false,
+        effectData: json['effectData'],
+      );
+}
