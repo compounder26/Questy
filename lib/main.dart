@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/inventory_screen.dart';
@@ -17,9 +18,17 @@ import 'models/habit_task.dart';
 import 'models/enums/habit_type.dart';
 import 'models/enums/recurrence.dart';
 import 'models/inventory_item.dart';
+import 'utils/env_config.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize environment configuration
+  try {
+    await EnvConfig.initialize();
+  } catch (e) {
+    print('Failed to initialize environment config: $e');
+  }
 
   final appDocumentDir = await getApplicationDocumentsDirectory();
   await Hive.initFlutter(appDocumentDir.path);
@@ -37,14 +46,16 @@ Future<void> main() async {
   if (!Hive.isAdapterRegistered(HabitAdapter().typeId)) {
     Hive.registerAdapter(HabitAdapter());
   }
-  if (!Hive.isAdapterRegistered(5)) { // TypeId 5 for InventoryItemAdapter
+  if (!Hive.isAdapterRegistered(5)) {
+    // TypeId 5 for InventoryItemAdapter
     Hive.registerAdapter(InventoryItemAdapter());
   }
 
   // Open Boxes
   await Hive.openBox<Habit>('habits'); // Open the box for Habits
   await Hive.openBox('preferences'); // Open the box for preferences
-  await Hive.openBox<InventoryItem>('inventory'); // Open the box for inventory items
+  await Hive.openBox<InventoryItem>(
+      'inventory'); // Open the box for inventory items
 
   // Load or create the user
   User? savedUser = await UserService.loadUser();
@@ -54,7 +65,7 @@ Future<void> main() async {
 
 class MyApp extends StatelessWidget {
   final User? savedUser;
-  
+
   const MyApp({super.key, this.savedUser});
 
   @override
@@ -65,10 +76,12 @@ class MyApp extends StatelessWidget {
           create: (_) => AIService(),
         ),
         ChangeNotifierProvider<User>(
-          create: (_) => savedUser ?? User(
-            id: '1',
-            name: 'User',
-          ),
+          create: (_) =>
+              savedUser ??
+              User(
+                id: '1',
+                name: 'User',
+              ),
         ),
         ChangeNotifierProvider<HabitProvider>(
           // Load habits when HabitProvider is created
