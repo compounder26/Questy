@@ -725,13 +725,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                           reward.iconAsset!,
                                           errorBuilder: (context, error, stackTrace) => const Icon(
                                             Icons.diamond,
-                                            color: Colors.blue,
                                             size: 30,
                                           ),
                                         )
                                       : const Icon(
-                                          Icons.diamond,
-                                          color: Colors.blue,
+                                          Icons.star,
+                                          color: Colors.amber,
                                           size: 30,
                                         ),
                                 ),
@@ -762,16 +761,27 @@ class _HomeScreenState extends State<HomeScreen> {
                                         spacing: 8,
                                         crossAxisAlignment: WrapCrossAlignment.center,
                                         children: [
-                                          Text(
-                                              'Cost: ${reward.cost} stars',
-                                              style: AppTheme.pixelBodyStyle.copyWith(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: canAfford
-                                                    ? Colors.yellowAccent
-                                                    : Colors.white.withOpacity(0.6),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                'Cost: ${reward.cost}',
+                                                style: AppTheme.pixelBodyStyle.copyWith(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: canAfford
+                                                      ? Colors.yellowAccent
+                                                      : Colors.white.withOpacity(0.6),
+                                                ),
                                               ),
-                                            ),
+                                              const SizedBox(width: 5),
+                                              Image.asset(
+                                                'assets/images/Accesories/starstar.png',
+                                                width: 20,
+                                                height: 20,
+                                              ),
+                                            ],
+                                          ),
                                             // Display item type
                                             if (reward.isPermanent)
                                               Container(
@@ -808,7 +818,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     padding: EdgeInsets.zero,
                                     child: canAfford
                                         ? Image.asset(
-                                            'assets/images/Items/diamond.png',
+                                            'assets/images/Accesories/starstar.png',
                                             fit: BoxFit.contain)
                                         : const Center(
                                             child: Icon(Icons.lock_outline,
@@ -870,6 +880,36 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'Do you want to buy ${reward.name} for ${reward.cost} stars?',
+                  style: const TextStyle(
+                    fontFamily: 'PixelFont',
+                    fontSize: 16,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${reward.cost}',
+                      style: const TextStyle(
+                        fontFamily: 'PixelFont',
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.yellowAccent,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Image.asset(
+                      'assets/images/Accesories/starstar.png',
+                      width: 30,
+                      height: 30,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  reward.description,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontFamily: 'PixelFont',
@@ -1001,10 +1041,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   'You used ${reward.name}!',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'PixelFont',
-                    fontSize: 16,
-                    color: Colors.white,
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.9),
                   ),
                 ),
                 const SizedBox(height: 10),

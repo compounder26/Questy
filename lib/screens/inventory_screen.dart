@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../providers/inventory_provider.dart';
 import '../models/inventory_item.dart';
 import '../theme/app_theme.dart';
-import '../widgets/pixel_button.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({Key? key}) : super(key: key);
@@ -109,93 +108,148 @@ class _InventoryScreenState extends State<InventoryScreen> {
   
   Widget _buildInventoryItem(BuildContext context, InventoryItem item) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.brown.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Colors.brown.shade800,
           width: 2,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(2, 2),
+          ),
+        ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Item Icon
-          Container(
-            width: 60,
-            height: 60,
-            padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(
-              color: Colors.black26,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.brown.shade900, width: 2),
-            ),
-            child: item.iconAsset != null
-                ? Image.asset(
-                    item.iconAsset!,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.inventory_2,
-                      color: Colors.white70,
-                      size: 30,
+          Row(
+            children: [
+              // Item Icon with enhanced decoration
+              Container(
+                width: 70,
+                height: 70,
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.black38,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.brown.shade900, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 4,
+                      offset: const Offset(1, 1),
                     ),
-                  )
-                : const Icon(
-                    Icons.inventory_2,
-                    color: Colors.white70,
-                    size: 30,
-                  ),
+                  ],
+                ),
+                child: item.iconAsset != null
+                    ? Image.asset(
+                        item.iconAsset!,
+                        errorBuilder: (context, error, stackTrace) => const Icon(
+                          Icons.inventory_2,
+                          color: Colors.white70,
+                          size: 34,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.inventory_2,
+                        color: Colors.white70,
+                        size: 34,
+                      ),
+              ),
+              const SizedBox(width: 16),
+              // Item Name with fancy style
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: TextStyle(
+                        fontFamily: 'PixelFont',
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.7),
+                            offset: const Offset(1, 1),
+                            blurRadius: 2,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: Colors.purple.withOpacity(0.5),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Text(
+                        'PERMANENT',
+                        style: TextStyle(
+                          fontFamily: 'PixelFont',
+                          fontSize: 10,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          // Item Details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  style: const TextStyle(
-                    fontFamily: 'PixelFont',
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  item.description,
-                  style: const TextStyle(
-                    fontFamily: 'PixelFont',
-                    fontSize: 12,
-                    color: Colors.white70,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Acquired: ${_formatDate(item.purchaseDate)}',
-                  style: const TextStyle(
-                    fontFamily: 'PixelFont',
-                    fontSize: 10,
-                    color: Colors.white54,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 12),
+          // Item Description with enhanced style
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.brown.withOpacity(0.3),
+                width: 1,
+              ),
             ),
-          ),
-          // Use button
-          PixelButton(
-            width: 70,
-            height: 40,
-            padding: const EdgeInsets.all(6),
-            onPressed: () => _useItem(context, item),
-            child: const Text(
-              'USE',
-              style: TextStyle(
+            child: Text(
+              item.description,
+              style: const TextStyle(
                 fontFamily: 'PixelFont',
                 fontSize: 14,
                 color: Colors.white,
+                height: 1.3,
               ),
             ),
+          ),
+          const SizedBox(height: 8),
+          // Acquisition date with icon
+          Row(
+            children: [
+              const Icon(
+                Icons.calendar_today,
+                size: 14,
+                color: Colors.amber,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'Acquired: ${_formatDate(item.purchaseDate)}',
+                style: const TextStyle(
+                  fontFamily: 'PixelFont',
+                  fontSize: 12,
+                  color: Colors.amber,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -204,120 +258,5 @@ class _InventoryScreenState extends State<InventoryScreen> {
   
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
-  }
-  
-  void _useItem(BuildContext context, InventoryItem item) {
-    // Display a confirmation dialog
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.transparent,
-          contentPadding: EdgeInsets.zero,
-          content: Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.85,
-              minWidth: MediaQuery.of(context).size.width * 0.6,
-            ),
-            padding: const EdgeInsets.all(20),
-            decoration: AppTheme.woodenFrameDecoration.copyWith(
-              image: const DecorationImage(
-                image: AssetImage(AppTheme.woodBackgroundPath),
-                fit: BoxFit.cover,
-                opacity: 0.8,
-              ),
-              borderRadius: BorderRadius.circular(12.0),
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'USE ITEM',
-                    style: TextStyle(
-                      fontFamily: 'PixelFont',
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Are you sure you want to use ${item.name}?',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'PixelFont',
-                      fontSize: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    item.description,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: 'PixelFont',
-                      fontSize: 14,
-                      color: Colors.white70,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 16,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      PixelButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text(
-                          'CANCEL',
-                          style: TextStyle(
-                            fontFamily: 'PixelFont',
-                            fontSize: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      PixelButton(
-                        onPressed: () {
-                          _applyItemEffect(item);
-                          Navigator.of(context).pop();
-                        },
-                        backgroundColor: Colors.green.shade800,
-                        child: const Text(
-                          'USE',
-                          style: TextStyle(
-                            fontFamily: 'PixelFont',
-                            fontSize: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-  
-  void _applyItemEffect(InventoryItem item) {
-    // Implementation for applying item effects (will vary based on item type)
-    final inventoryProvider = Provider.of<InventoryProvider>(context, listen: false);
-    
-    // Show message for now, in a real implementation you would apply the effect
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Used ${item.name}!'),
-        backgroundColor: Colors.green.shade800,
-      ),
-    );
-    
-    // Remove item from inventory after use
-    inventoryProvider.removeItem(item.id);
   }
 }
