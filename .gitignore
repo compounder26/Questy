@@ -5,11 +5,9 @@
 *.swp
 .DS_Store
 .atom/
-.build/
 .buildlog/
 .history
 .svn/
-.swiftpm/
 migrate_working_dir/
 
 # IntelliJ related
@@ -43,3 +41,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Config files with sensitive information
+/lib/config/
+*.json
+lib/config/api_config.dart
+lib/config/vertex_ai_credentials.json
