@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/habit.dart';
 import '../models/user.dart';
 import '../models/reward.dart';
+import '../models/attribute_stats.dart';
 import '../services/ai_service.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import '../providers/habit_provider.dart';
@@ -21,6 +22,7 @@ import '../theme/app_theme.dart';
 import '../widgets/pixel_card.dart';
 import '../widgets/pixel_button.dart';
 import '../widgets/pixel_checkbox.dart';
+import '../widgets/attribute_stats_display.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -56,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
       child: Container(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(16.0),
         decoration: AppTheme.woodenFrameDecoration.copyWith(
           image: const DecorationImage(
             image: AssetImage(AppTheme.woodBackgroundPath),
@@ -72,32 +74,295 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Consumer<User>(
-                builder: (context, user, child) {
-                  return Column(
-                    children: [
-                      Text(
+        child: Consumer<User>(
+          builder: (context, user, child) {
+            final stats = user.attributeStats;
+            
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Level and Star count in one row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Level indicator
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.brown[700],
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.brown[900]!, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 2,
+                            offset: const Offset(1, 1),
+                          ),
+                        ],
+                      ),
+                      child: Text(
                         'Level ${user.level}',
-                        style: AppTheme.pixelHeadingStyle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'PixelFont',
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black,
+                              offset: Offset(1, 1),
+                              blurRadius: 1,
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      Text(
-                        '${user.points} Points',
-                        style: AppTheme.pixelBodyStyle.copyWith(fontSize: 20),
+                    ),
+                    
+                    // Star count
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${user.starCurrency}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'PixelFont',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black,
+                                offset: Offset(1, 1),
+                                blurRadius: 1,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Image.asset(
+                          'assets/images/Items/star.png',
+                          width: 20,
+                          height: 20,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.star, color: Colors.amber, size: 20);
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                
+                // Experience bar
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'EXP',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            offset: Offset(1, 1),
+                            blurRadius: 1,
+                          ),
+                        ],
                       ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
+                    ),
+                    Text(
+                      '${user.exp}/${user.getExpNeededForNextLevel()}',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            offset: Offset(1, 1),
+                            blurRadius: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                
+                // EXP Progress bar
+                Stack(
+                  children: [
+                    // Background
+                    Container(
+                      height: 14,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        border: Border.all(color: Colors.black, width: 1),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    
+                    // Filled portion
+                    FractionallySizedBox(
+                      widthFactor: user.getLevelProgress().clamp(0.0, 1.0),
+                      child: Container(
+                        height: 14,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.amber.shade300,
+                              Colors.amber.shade600,
+                            ],
+                          ),
+                          border: Border.all(color: Colors.black, width: 1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                
+                // Health attribute
+                _buildAttributeRow('H', 'Health', stats.health, stats.healthLevel, Colors.red.shade600),
+                
+                // Intelligence attribute
+                _buildAttributeRow('I', 'Intelligence', stats.intelligence, stats.intelligenceLevel, Colors.blue.shade600),
+                
+                // Cleanliness attribute
+                _buildAttributeRow('C', 'Cleanliness', stats.cleanliness, stats.cleanlinessLevel, Colors.yellow.shade600),
+                
+                // Charisma attribute
+                _buildAttributeRow('C', 'Charisma', stats.charisma, stats.charismaLevel, Colors.cyan.shade600),
+                
+                // Unity attribute
+                _buildAttributeRow('U', 'Unity', stats.unity, stats.unityLevel, Colors.green.shade600),
+                
+                // Power attribute
+                _buildAttributeRow('P', 'Power', stats.power, stats.powerLevel, Colors.purple.shade600),
+              ],
+            );
+          },
         ),
       ),
     );
+  }
+  
+  Widget _buildAttributeRow(String shortName, String fullName, double value, AttributeLevel level, Color color) {
+    // Calculate percentage filled (max value for display purposes is 60)
+    final double percentage = (value / 60.0).clamp(0.0, 1.0);
+    
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              // Attribute initial in box
+              Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.brown[800],
+                  border: Border.all(color: Colors.brown[900]!, width: 1),
+                ),
+                child: Text(
+                  shortName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'PixelFont',
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              
+              // Level text
+              Text(
+                level.displayName,
+                style: TextStyle(
+                  color: _getLevelColor(level),
+                  fontFamily: 'PixelFont',
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              
+              const Spacer(),
+              
+              // Value display
+              Text(
+                value.toStringAsFixed(1),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'PixelFont',
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          
+          // Progress bar
+          Stack(
+            children: [
+              // Background
+              Container(
+                height: 12,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.black45,
+                  border: Border.all(color: Colors.black, width: 1),
+                ),
+              ),
+              
+              // Filled portion
+              FractionallySizedBox(
+                widthFactor: percentage,
+                child: Container(
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: color,
+                    border: Border.all(color: Colors.black, width: 1),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Get color based on attribute level
+  Color _getLevelColor(AttributeLevel level) {
+    switch (level) {
+      case AttributeLevel.novice:
+        return Colors.grey[400]!;
+      case AttributeLevel.apprentice:
+        return Colors.green[400]!;
+      case AttributeLevel.adept:
+        return Colors.blue[400]!;
+      case AttributeLevel.expert:
+        return Colors.purple[400]!;
+      case AttributeLevel.master:
+        return Colors.orange[400]!;
+      case AttributeLevel.sage:
+        return Colors.red[400]!;
+      default:
+        return Colors.grey[400]!; // Default case to satisfy non-nullable return type
+    }
   }
 
   // Helper function to determine color based on habit properties
@@ -157,8 +422,18 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: Consumer<HabitProvider>(
                 builder: (context, habitProvider, child) {
-                  // Filter for active habits/goals first
-                  final activeHabits = habitProvider.habits.where((h) => h.isActive).toList();
+                  // Filter for active habits/goals that are not completed
+                  final activeHabits = habitProvider.habits.where((h) {
+                    // Only show active habits
+                    if (!h.isActive) return false;
+                    
+                    // For goals, don't show completed ones
+                    if (h.habitType == HabitType.goal && h.areAllTasksCompleted) {
+                      return false;
+                    }
+                    
+                    return true;
+                  }).toList();
 
                   if (activeHabits.isEmpty) {
                     return Center(
@@ -172,6 +447,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // Use ListView.separated for better visual grouping by habit
                   return ListView.separated(
+                    // Add padding to the ListView for extra space at the bottom
+                    padding: const EdgeInsets.only(bottom: 15.0),
                     itemCount: activeHabits.length,
                     separatorBuilder: (context, index) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
@@ -348,7 +625,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 0.0),
                   child: Center(
                     child: Text(
-                      'Your Points: ${user.points}',
+                      'Your Stars: ${user.starCurrency}',
                       style: AppTheme.pixelBodyStyle.copyWith(fontSize: 18),
                     ),
                   ),
@@ -377,7 +654,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (context, index) {
                       final reward = available[index];
                       final bool isOwned = ownedIds.contains(reward.id);
-                      final bool canAfford = user.points >= reward.cost;
+                      final bool canAfford = user.starCurrency >= reward.cost;
 
                       return Card(
                         elevation: 2.0,
@@ -418,7 +695,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       )
                                     else
                                       Text(
-                                        'Cost: ${reward.cost} points',
+                                        'Cost: ${reward.cost} stars',
                                         style: AppTheme.pixelBodyStyle.copyWith(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
@@ -446,7 +723,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
                                           backgroundColor: AppTheme.redHighlight,
-                                          content: Text('Purchase failed. Not enough points or already owned.', style: AppTheme.pixelBodyStyle)
+                                          content: Text('Purchase failed. Not enough stars or already owned.', style: AppTheme.pixelBodyStyle)
                                         ),
                                       );
                                     }
@@ -487,6 +764,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final result = await showDialog<Map<String, dynamic>?>(
       context: context,
       barrierDismissible: false,
+      useSafeArea: true,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -502,6 +780,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     maxWidth: MediaQuery.of(context).size.width * 0.85,
                     minWidth: MediaQuery.of(context).size.width * 0.6,
                   ),
+                  margin: const EdgeInsets.only(bottom: 40),
                   decoration: BoxDecoration(
                     image: const DecorationImage(
                       image: AssetImage(AppTheme.woodBackgroundPath),
@@ -590,6 +869,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             final ImagePicker picker = ImagePicker();
                             final source = await showDialog<ImageSource>(
                               context: context,
+                              useSafeArea: true,
                               builder: (context) => Dialog(
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
@@ -599,6 +879,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: SingleChildScrollView(
                                   child: Container(
                                     width: MediaQuery.of(context).size.width * 0.7,
+                                    margin: const EdgeInsets.only(bottom: 40),
                                     decoration: BoxDecoration(
                                       image: const DecorationImage(
                                         image: AssetImage(AppTheme.woodBackgroundPath),
@@ -758,20 +1039,79 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final bool isValid = verificationResult['isValid'] ?? false;
         final String? reason = verificationResult['reason'];
+        final String? suggestedAttribute = verificationResult['suggestedAttribute'];
 
         if (isValid) {
-          // Mark task complete & Award Points
+          // Mark task complete & Award Stars and EXP
           task.isCompleted = true;
           task.lastCompletedDate = DateTime.now();
-
-          int pointsAwarded = 0;
+          
+          // Award stars and EXP based on difficulty
+          int starsAwarded = 0;
+          int expAwarded = 0;
+          
           switch (task.difficulty.toLowerCase()) {
-            case 'easy': pointsAwarded = 10; break;
-            case 'medium': pointsAwarded = 25; break;
-            case 'hard': pointsAwarded = 50; break;
-            default: pointsAwarded = 15;
+            case 'easy': 
+              starsAwarded = 10; 
+              expAwarded = 5;
+              break;
+            case 'medium': 
+              starsAwarded = 25;
+              expAwarded = 10;
+              break;
+            case 'hard': 
+              starsAwarded = 50;
+              expAwarded = 20;
+              break;
+            default: 
+              starsAwarded = 15;
+              expAwarded = 8;
           }
-          user.addPoints(pointsAwarded);
+          
+          // Store stars awarded in the task
+          task.pointsAwarded = starsAwarded;
+          user.addStarCurrency(starsAwarded);
+          user.addExp(expAwarded);
+          
+          // Increase the appropriate attribute based on the AI suggestion or fallback to task analysis
+          if (suggestedAttribute != null) {
+            // Use the AI's suggested attribute
+            user.increaseAttribute(suggestedAttribute.toLowerCase(), task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
+                                                                   task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+          } else {
+            // Fallback to analyzing the task content
+            if (parentHabit.habitType == HabitType.goal) {
+              // Goals typically increase Intelligence
+              user.increaseAttribute('intelligence', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
+                                                   task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+            } else {
+              // Regular habits increase based on their tags or name (simplified example)
+              final String habitDescription = parentHabit.description.toLowerCase();
+              if (habitDescription.contains('exercise') || habitDescription.contains('workout') || habitDescription.contains('gym')) {
+                user.increaseAttribute('power', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
+                                                 task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+              } else if (habitDescription.contains('read') || habitDescription.contains('study') || habitDescription.contains('learn')) {
+                user.increaseAttribute('intelligence', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
+                                                     task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+              } else if (habitDescription.contains('clean') || habitDescription.contains('tidy') || habitDescription.contains('organize')) {
+                user.increaseAttribute('cleanliness', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
+                                                    task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+              } else if (habitDescription.contains('meditate') || habitDescription.contains('reflect') || habitDescription.contains('journal')) {
+                user.increaseAttribute('unity', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
+                                              task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+              } else if (habitDescription.contains('socialize') || habitDescription.contains('talk') || habitDescription.contains('friend')) {
+                user.increaseAttribute('charisma', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
+                                                task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+              } else if (habitDescription.contains('health') || habitDescription.contains('sleep') || habitDescription.contains('eat')) {
+                user.increaseAttribute('health', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
+                                              task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+              } else {
+                // Default to increasing unity if no specific match
+                user.increaseAttribute('unity', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
+                                              task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+              }
+            }
+          }
 
           // Update Weekly Progress & Habit Last Updated
           bool habitStateChanged = false;
@@ -795,7 +1135,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // Show Success Message
           scaffoldMessenger.showSnackBar(
-            SnackBar(content: Text('Task verified! +$pointsAwarded points.')),
+            SnackBar(content: Text('Task verified! +$starsAwarded stars and +$expAwarded EXP.')),
           );
         } else {
           // Show rejection reason from AI
@@ -827,6 +1167,7 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
+      useSafeArea: true,
       builder: (dialogContext) {
         bool _isLoadingInDialog = false;
         return StatefulBuilder(
@@ -843,6 +1184,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     maxWidth: MediaQuery.of(context).size.width * 0.85,
                     minWidth: MediaQuery.of(context).size.width * 0.6,
                   ),
+                  margin: const EdgeInsets.only(bottom: 40),
                   decoration: BoxDecoration(
                     image: const DecorationImage(
                       image: AssetImage(AppTheme.woodBackgroundPath),
@@ -913,131 +1255,150 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       const SizedBox(height: 20),
                       if (!_isLoadingInDialog)
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          alignment: WrapAlignment.center,
-                          children: [
-                            PixelButton(
-                              width: 120,
-                              backgroundColor: AppTheme.redHighlight,
-                              onPressed: () {
-                                setState(() {
-                                  _isAddingHabit = false;
-                                  _habitController.clear();
-                                });
-                                Navigator.pop(dialogContext);
-                              },
-                              child: const Text('Cancel'),
-                            ),
-                            PixelButton(
-                              width: 120,
-                              backgroundColor: AppTheme.greenHighlight,
-                              onPressed: () async {
-                                final originalDescription = _habitController.text;
-                                if (originalDescription.isNotEmpty) {
-                                  setDialogState(() {
-                                    _isLoadingInDialog = true;
+                        Container(
+                          width: double.infinity,
+                          child: Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              PixelButton(
+                                width: 120,
+                                backgroundColor: AppTheme.redHighlight,
+                                onPressed: () {
+                                  setState(() {
+                                    _isAddingHabit = false;
+                                    _habitController.clear();
                                   });
+                                  Navigator.pop(dialogContext);
+                                },
+                                child: const Text('Cancel'),
+                              ),
+                              PixelButton(
+                                width: 120,
+                                backgroundColor: AppTheme.greenHighlight,
+                                onPressed: () async {
+                                  final originalDescription = _habitController.text;
+                                  if (originalDescription.isNotEmpty) {
+                                    setDialogState(() {
+                                      _isLoadingInDialog = true;
+                                    });
 
-                                  final aiService = context.read<AIService>();
-                                  final habitProvider = context.read<HabitProvider>();
-                                  final scaffoldMessenger = ScaffoldMessenger.of(context);
-                                  const uuid = Uuid();
+                                    final aiService = context.read<AIService>();
+                                    final habitProvider = context.read<HabitProvider>();
+                                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+                                    const uuid = Uuid();
 
-                                  try {
-                                    final habitData = await aiService.breakDownHabit(originalDescription);
+                                    try {
+                                      final habitData = await aiService.breakDownHabit(originalDescription);
 
-                                    if (habitData != null) {
-                                      final String conciseTitle = habitData['concisePromptTitle'] ?? originalDescription;
-                                      final String habitTypeString = habitData['habitType'] ?? 'goal';
-                                      final String recurrenceString = habitData['recurrence'] ?? 'none';
-                                      final String? endDateString = habitData['endDate'];
-                                      final int? weeklyTarget = habitData['weeklyTarget'];
-                                      final List<dynamic> tasksData = habitData['tasks'] ?? [];
+                                      if (habitData != null) {
+                                        final String conciseTitle = habitData['concisePromptTitle'] ?? originalDescription;
+                                        final String habitTypeString = habitData['habitType'] ?? 'goal';
+                                        final String recurrenceString = habitData['recurrence'] ?? 'none';
+                                        final String? endDateString = habitData['endDate'];
+                                        final int? weeklyTarget = habitData['weeklyTarget'];
+                                        final List<dynamic> tasksData = habitData['tasks'] ?? [];
 
-                                      final HabitType habitType = HabitType.values.firstWhere(
-                                        (e) => e.toString() == 'HabitType.$habitTypeString',
-                                        orElse: () => HabitType.goal
-                                      );
-                                      final Recurrence recurrence = Recurrence.values.firstWhere(
-                                        (e) => e.toString() == 'Recurrence.$recurrenceString',
-                                        orElse: () => Recurrence.none
-                                      );
-                                      final DateTime? endDate = endDateString != null ? DateTime.tryParse(endDateString) : null;
+                                        final HabitType habitType = HabitType.values.firstWhere(
+                                          (e) => e.toString() == 'HabitType.$habitTypeString',
+                                          orElse: () => HabitType.goal
+                                        );
+                                        final Recurrence recurrence = Recurrence.values.firstWhere(
+                                          (e) => e.toString() == 'Recurrence.$recurrenceString',
+                                          orElse: () => Recurrence.none
+                                        );
+                                        final DateTime? endDate = endDateString != null ? DateTime.tryParse(endDateString) : null;
 
-                                      final List<HabitTask> habitTasks = tasksData.map((taskMap) {
-                                        if (taskMap is Map<String, dynamic>) {
-                                            int estimatedMinutes = 0;
-                                            if (taskMap['estimatedTime'] is int) {
-                                              estimatedMinutes = taskMap['estimatedTime'];
-                                            } else if (taskMap['estimatedTime'] is String) {
-                                              estimatedMinutes = int.tryParse(taskMap['estimatedTime'].toString()) ?? 0;
-                                            }
+                                        final List<HabitTask> habitTasks = tasksData.map((taskMap) {
+                                          if (taskMap is Map<String, dynamic>) {
+                                              int estimatedMinutes = 0;
+                                              if (taskMap['estimatedTime'] is int) {
+                                                estimatedMinutes = taskMap['estimatedTime'];
+                                              } else if (taskMap['estimatedTime'] is String) {
+                                                estimatedMinutes = int.tryParse(taskMap['estimatedTime'].toString()) ?? 0;
+                                              }
 
-                                            return HabitTask(
-                                              id: uuid.v4(),
-                                              description: taskMap['task']?.toString() ?? 'Unnamed Task',
-                                              difficulty: taskMap['difficulty']?.toString() ?? 'Medium',
-                                              estimatedTimeMinutes: estimatedMinutes,
-                                            );
-                                        } else {
-                                          print("Skipping invalid task data: $taskMap");
-                                          return null;
+                                              return HabitTask(
+                                                id: uuid.v4(),
+                                                description: taskMap['task']?.toString() ?? 'Unnamed Task',
+                                                difficulty: taskMap['difficulty']?.toString() ?? 'Medium',
+                                                estimatedTimeMinutes: estimatedMinutes,
+                                              );
+                                          } else {
+                                            print("Skipping invalid task data: $taskMap");
+                                            return null;
+                                          }
+                                        }).whereType<HabitTask>().toList();
+
+                                        final newHabit = Habit(
+                                          id: uuid.v4(),
+                                          description: originalDescription,
+                                          concisePromptTitle: conciseTitle,
+                                          tasks: habitTasks,
+                                          createdAt: DateTime.now(),
+                                          habitType: habitType,
+                                          recurrence: recurrence,
+                                          endDate: endDate,
+                                          weeklyTarget: weeklyTarget,
+                                        );
+
+                                        await habitProvider.addHabit(newHabit);
+                                        if (dialogContext.mounted) {
+                                          Navigator.pop(dialogContext);
                                         }
-                                      }).whereType<HabitTask>().toList();
-
-                                      final newHabit = Habit(
-                                        id: uuid.v4(),
-                                        description: originalDescription,
-                                        concisePromptTitle: conciseTitle,
-                                        tasks: habitTasks,
-                                        createdAt: DateTime.now(),
-                                        habitType: habitType,
-                                        recurrence: recurrence,
-                                        endDate: endDate,
-                                        weeklyTarget: weeklyTarget,
-                                      );
-
-                                      await habitProvider.addHabit(newHabit);
-                                      if (dialogContext.mounted) {
-                                        Navigator.pop(dialogContext);
+                                      } else {
+                                        if (dialogContext.mounted) {
+                                          Navigator.pop(dialogContext);
+                                        }
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Could not break down goal/habit. AI service might be unavailable. Please try again.')),
+                                          );
+                                        }
                                       }
-                                    } else {
+                                    } catch (e, stacktrace) {
+                                      print("Error during habit creation: $e");
+                                      print("Stacktrace: $stacktrace");
                                       if (dialogContext.mounted) {
                                         Navigator.pop(dialogContext);
                                       }
                                       if (context.mounted) {
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Could not break down goal/habit. AI service might be unavailable. Please try again.')),
+                                          const SnackBar(content: Text('An error occurred while creating the goal/habit. Please try again.')),
                                         );
                                       }
-                                    }
-                                  } catch (e, stacktrace) {
-                                    print("Error during habit creation: $e");
-                                    print("Stacktrace: $stacktrace");
-                                    if (dialogContext.mounted) {
-                                      Navigator.pop(dialogContext);
-                                    }
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('An error occurred while creating the goal/habit. Please try again.')),
-                                      );
-                                    }
-                                  } finally {
-                                    if (mounted) {
-                                      setDialogState(() {
-                                        _isLoadingInDialog = false;
-                                      });
-                                      setState(() {
+                                    } finally {
+                                      if (mounted) {
+                                        setDialogState(() {
+                                          _isLoadingInDialog = false;
+                                        });
+                                        setState(() {
+                                          _isAddingHabit = false;
+                                          _habitController.clear();
+                                        });
+                                      } else {
                                         _isAddingHabit = false;
                                         _habitController.clear();
-                                      });
-                                    } else {
-                                      _isAddingHabit = false;
-                                      _habitController.clear();
+                                      }
                                     }
-                                                                    }                                }                              },                              child: const Text('Add'),                            ),                          ],                        ),                    ],                  ),                ),              ),            );          },        );      },    );  }
+                                  }
+                                },
+                                child: const Text('Add'),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   // Confirmation Dialog for Deleting Habit/Goal
   Future<void> _confirmAndDeleteHabit(BuildContext context, Habit habit) async {
@@ -1045,6 +1406,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final bool? confirmed = await showDialog<bool>(
       context: context,
+      useSafeArea: true,
       builder: (BuildContext dialogContext) {
         return Dialog(
           shape: RoundedRectangleBorder(
@@ -1058,6 +1420,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 maxWidth: MediaQuery.of(context).size.width * 0.85,
                 minWidth: MediaQuery.of(context).size.width * 0.6,
               ),
+              margin: const EdgeInsets.only(bottom: 40),
               decoration: BoxDecoration(
                 image: const DecorationImage(
                   image: AssetImage(AppTheme.woodBackgroundPath),
@@ -1180,34 +1543,38 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              flex: 0, 
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const CharacterCustomizationScreen(),
-                    ),
-                  );
-                },
-                child: CharacterDisplay(
-                  character: characterProvider.character,
-                  animate: _characterIsAnimating,
-                  background: characterProvider.selectedBackground,
+        bottom: true,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12.0),
+          child: Column(
+            children: [
+              Expanded(
+                flex: 0, 
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CharacterCustomizationScreen(),
+                      ),
+                    );
+                  },
+                  child: CharacterDisplay(
+                    character: characterProvider.character,
+                    animate: _characterIsAnimating,
+                    background: characterProvider.selectedBackground,
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              flex: 1,
-              child: PageView(
-                controller: _pageController,
-                children: _carouselItems,
+              Expanded(
+                flex: 1,
+                child: PageView(
+                  controller: _pageController,
+                  children: _carouselItems,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       floatingActionButton: Column(
@@ -1236,6 +1603,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.white,
             ),
           ),
+          const SizedBox(height: 12),
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

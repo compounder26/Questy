@@ -23,13 +23,14 @@ class HabitTaskAdapter extends TypeAdapter<HabitTask> {
       estimatedTimeMinutes: fields[3] as int,
       isCompleted: fields[4] as bool,
       lastCompletedDate: fields[5] as DateTime?,
+      pointsAwarded: fields[6] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, HabitTask obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class HabitTaskAdapter extends TypeAdapter<HabitTask> {
       ..writeByte(4)
       ..write(obj.isCompleted)
       ..writeByte(5)
-      ..write(obj.lastCompletedDate);
+      ..write(obj.lastCompletedDate)
+      ..writeByte(6)
+      ..write(obj.pointsAwarded);
   }
 
   @override
@@ -53,4 +56,4 @@ class HabitTaskAdapter extends TypeAdapter<HabitTask> {
       other is HabitTaskAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
-} 
+}

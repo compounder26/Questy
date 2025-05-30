@@ -59,20 +59,118 @@ class AIService {
         'https://$_region-aiplatform.googleapis.com/v1/projects/$_projectId/locations/$_region/publishers/google/models/$_modelName:generateContent');
 
     final prompt = '''
+    System Prompt: Gamified Self-Improvement Framework
+
+    I. Overview:
+    You are to understand and operate within a gamified self-improvement system designed to help users develop positive habits and track their progress. The system revolves around completing tasks that enhance specific character attributes, earn experience points (EXP) for leveling, and accumulate Star Currency for in-system purchases. The core principle is to reflect real-world progress in a gradual and fair manner.
+
+    II. Core Character Attributes (Stats):
+    Users will earn points for the following attributes based on the tasks they complete. The mnemonic for these attributes is HICCUP.
+
+        Health (H)
+            Description: Reflects the user's physical well-being and healthy lifestyle choices. This attribute increases when the user completes tasks related to maintaining physical health, such as proper diet, adequate sleep, and light fitness activities focused on upkeep rather than building muscle or strength.
+            Goal: To foster sustainable healthy living habits.
+            Example Tasks & Points:
+                Drink 1 glass of water (Easy): +0.5 Health Points
+                Sleep for at least 7 hours (Easy): +0.5 Health Points
+                Consume fruits/vegetables today (Medium): +1 Health Point
+                Avoid junk food for the entire day (Medium): +1 Health Point
+                Consult a doctor / undergo a light medical check-up (Hard): +2 Health Points
+
+        Intelligence (I)
+            Description: Reflects the user's development of knowledge and skills. This attribute increases when the user engages in activities such as learning, reading, attending classes, or writing.
+            Focus: Intellectual growth and self-development.
+            Example Tasks & Points:
+                Read an educational article (Easy): +0.5 Intelligence Points
+                Watch a 10-minute educational video (Easy): +0.5 Intelligence Points
+                Attend a 1-hour webinar/online course (Medium): +1 Intelligence Point
+                Create a summary of study material (Medium): +1 Intelligence Point
+                Complete a new learning module (Hard): +2 Intelligence Points
+
+        Cleanliness (C)
+            Description: Measures the user's discipline in maintaining personal hygiene and environmental tidiness. Points are gained from activities like cleaning the house, doing laundry, or practicing neat personal habits.
+            Association: Cleanliness is associated with peace of mind and an orderly life.
+            Example Tasks & Points:
+                Take a bath/shower (Easy): +0.5 Cleanliness Points
+                Wash dishes after a meal (Easy): +0.5 Cleanliness Points
+                Clean the bathroom (Medium): +1 Cleanliness Point
+                Organize a wardrobe (Medium): +1 Cleanliness Point
+                Thoroughly clean a room (Hard): +2 Cleanliness Points
+
+        Charisma (C)
+            Description: Represents the user's social interaction skills, self-confidence, and presence as perceived by others. This stat increases through activities involving communication, teamwork, or public speaking.
+            Suitability: Ideal for building connections and interpersonal skills.
+            Example Tasks & Points:
+                Give someone a compliment (Easy): +0.5 Charisma Points
+                Greet a friend/colleague warmly (Easy): +0.5 Charisma Points
+                Actively participate in a group discussion (Medium): +1 Charisma Point
+                Voluntarily help someone (Medium): +1 Charisma Point
+                Give a presentation in public (Hard): +2 Charisma Points
+
+        Unity (U)
+            Description: Represents the user's inner state, mental well-being, and peace. This stat increases through activities such as meditation, journaling, taking breaks from social media, or spiritual practices.
+            Goal: Helps the user maintain stable mental health and life focus.
+            Example Tasks & Points:
+                Write down 3 things you are grateful for today (Easy): +0.5 Unity Points
+                Meditate or pray for 5 minutes (Easy): +0.5 Unity Points
+                Journal emotions or reflections for the day (Medium): +1 Unity Point
+                Stay offline from social media for 6 hours (Medium): +1 Unity Point
+                Complete a full-day digital detox (no social media at all) (Hard): +2 Unity Points
+
+        Power (P)
+            Description: Focuses on the user's physical strength, stamina, and energy. This stat increases when the user performs active physical tasks like sports, workouts, or strenuous activities.
+            Emphasis: Physical development and training discipline.
+            Example Tasks & Points:
+                Stretch for 3 minutes (Easy): +0.5 Power Points
+                Perform 20 push-ups/squats (Easy): +0.5 Power Points
+                Go for a 15-minute jog or light workout (Medium): +1 Power Point
+                Attend an exercise class (yoga/gym) (Medium): +1 Power Point
+                Engage in intense exercise like a 5km run / 1-hour futsal game (Hard): +2 Power Points
+
+    III. Reward System Mechanics:
+    The reward system integrates character stats (HICCUP), Experience Points (EXP), and leveling.
+
+        Stat Point Allocation:
+            Upon task completion, the character receives points for the specific attribute associated with that task (as detailed above).
+            Point values based on task difficulty:
+                Easy Task: +0.5 attribute points
+                Medium Task: +1 attribute point
+                Hard Task: +2 attribute points
+
+        Experience Points (EXP):
+            Every task also grants EXP based on its difficulty, regardless of which attribute it affects.
+            EXP values based on task difficulty:
+                Easy Task: +5 EXP
+                Medium Task: +10 EXP
+                Hard Task: +20 EXP
+
+        Star Currency:
+            An in-system currency used to purchase items from a "Shop."
+            Star Currency earned based on task difficulty:
+                Easy Task: +10 stars
+                Medium Task: +25 stars
+                Hard Task: +50 stars
+
+        Leveling:
+            The system incorporates a leveling mechanism based on accumulated EXP.
+            Level calculation: Level = 1 + (EXP / 100)²
+
     Analyze the following user request for a new goal or habit. Based on the description, determine the following attributes.
     Your entire response MUST be a single, valid JSON object. Do NOT include any text, explanations, thoughts, comments, or any non-JSON characters (like 'inhaled', 'thought', etc.) anywhere, neither outside nor inside the JSON structure (e.g., between key-value pairs, within arrays, or within string values unless they are part of the actual requested data).
     Do not use markdown code fences (e.g., ```json ... ```). The response must start with '{' and end with '}'. Ensure all string values within the JSON are properly escaped if they contain special characters.
-x
+
     The JSON object must contain the following keys:
     1.  `concisePromptTitle`: Create a short, clear title summarizing the overall goal/habit (e.g., "Learn Flutter Basics", "Daily Morning Meditation").
     2.  `habitType`: Classify if this is a one-off 'goal' or a recurring 'habit'. Use the exact strings "goal" or "habit".
     3.  `recurrence`: If it's a 'habit', determine the recurrence. Use the exact strings "daily", "weekly", or "none". If it's a 'goal', use "none".
     4.  `weeklyTarget`: If `recurrence` is "weekly", determine the target number of completions per week (e.g., for "exercise 3 times a week", `weeklyTarget` would be 3). If not applicable, set to null.
     5.  `endDate`: Determine if the request implies a specific duration (e.g., "for 3 weeks", "in 6 months", "by Dec 31st"). If a duration is found, calculate the corresponding end date from today (assume today is ${DateTime.now().toIso8601String().substring(0,10)}) and return it as an ISO 8601 string (YYYY-MM-DD). If no duration or it seems permanent, return null.
-    6.  `tasks`: Break down the overall goal/habit into smaller, manageable sub-tasks. For each task, provide:
+    6.  `primaryAttribute`: Based on the HICCUP system, determine the primary attribute this habit/goal would develop (Health, Intelligence, Cleanliness, Charisma, Unity, or Power).
+    7.  `tasks`: Break down the overall goal/habit into smaller, manageable sub-tasks. For each task, provide:
         *   `task`: A clear description of the sub-task.
         *   `difficulty`: Estimated difficulty ("Easy", "Medium", "Hard").
         *   `estimatedTime`: Estimated time to complete the sub-task in minutes (return as an integer).
+        *   `attribute`: Which HICCUP attribute this specific task primarily develops.
 
     User Request: $habitDescription
     JSON Response:
@@ -215,12 +313,110 @@ x
     final parts = <Map<String, dynamic>>[];
     
     String instruction = '''
+    System Prompt: Gamified Self-Improvement Framework
+
+    I. Overview:
+    You are to understand and operate within a gamified self-improvement system designed to help users develop positive habits and track their progress. The system revolves around completing tasks that enhance specific character attributes, earn experience points (EXP) for leveling, and accumulate Star Currency for in-system purchases. The core principle is to reflect real-world progress in a gradual and fair manner.
+
+    II. Core Character Attributes (Stats):
+    Users will earn points for the following attributes based on the tasks they complete. The mnemonic for these attributes is HICCUP.
+
+        Health (H)
+            Description: Reflects the user's physical well-being and healthy lifestyle choices. This attribute increases when the user completes tasks related to maintaining physical health, such as proper diet, adequate sleep, and light fitness activities focused on upkeep rather than building muscle or strength.
+            Goal: To foster sustainable healthy living habits.
+            Example Tasks & Points:
+                Drink 1 glass of water (Easy): +0.5 Health Points
+                Sleep for at least 7 hours (Easy): +0.5 Health Points
+                Consume fruits/vegetables today (Medium): +1 Health Point
+                Avoid junk food for the entire day (Medium): +1 Health Point
+                Consult a doctor / undergo a light medical check-up (Hard): +2 Health Points
+
+        Intelligence (I)
+            Description: Reflects the user's development of knowledge and skills. This attribute increases when the user engages in activities such as learning, reading, attending classes, or writing.
+            Focus: Intellectual growth and self-development.
+            Example Tasks & Points:
+                Read an educational article (Easy): +0.5 Intelligence Points
+                Watch a 10-minute educational video (Easy): +0.5 Intelligence Points
+                Attend a 1-hour webinar/online course (Medium): +1 Intelligence Point
+                Create a summary of study material (Medium): +1 Intelligence Point
+                Complete a new learning module (Hard): +2 Intelligence Points
+
+        Cleanliness (C)
+            Description: Measures the user's discipline in maintaining personal hygiene and environmental tidiness. Points are gained from activities like cleaning the house, doing laundry, or practicing neat personal habits.
+            Association: Cleanliness is associated with peace of mind and an orderly life.
+            Example Tasks & Points:
+                Take a bath/shower (Easy): +0.5 Cleanliness Points
+                Wash dishes after a meal (Easy): +0.5 Cleanliness Points
+                Clean the bathroom (Medium): +1 Cleanliness Point
+                Organize a wardrobe (Medium): +1 Cleanliness Point
+                Thoroughly clean a room (Hard): +2 Cleanliness Points
+
+        Charisma (C)
+            Description: Represents the user's social interaction skills, self-confidence, and presence as perceived by others. This stat increases through activities involving communication, teamwork, or public speaking.
+            Suitability: Ideal for building connections and interpersonal skills.
+            Example Tasks & Points:
+                Give someone a compliment (Easy): +0.5 Charisma Points
+                Greet a friend/colleague warmly (Easy): +0.5 Charisma Points
+                Actively participate in a group discussion (Medium): +1 Charisma Point
+                Voluntarily help someone (Medium): +1 Charisma Point
+                Give a presentation in public (Hard): +2 Charisma Points
+
+        Unity (U)
+            Description: Represents the user's inner state, mental well-being, and peace. This stat increases through activities such as meditation, journaling, taking breaks from social media, or spiritual practices.
+            Goal: Helps the user maintain stable mental health and life focus.
+            Example Tasks & Points:
+                Write down 3 things you are grateful for today (Easy): +0.5 Unity Points
+                Meditate or pray for 5 minutes (Easy): +0.5 Unity Points
+                Journal emotions or reflections for the day (Medium): +1 Unity Point
+                Stay offline from social media for 6 hours (Medium): +1 Unity Point
+                Complete a full-day digital detox (no social media at all) (Hard): +2 Unity Points
+
+        Power (P)
+            Description: Focuses on the user's physical strength, stamina, and energy. This stat increases when the user performs active physical tasks like sports, workouts, or strenuous activities.
+            Emphasis: Physical development and training discipline.
+            Example Tasks & Points:
+                Stretch for 3 minutes (Easy): +0.5 Power Points
+                Perform 20 push-ups/squats (Easy): +0.5 Power Points
+                Go for a 15-minute jog or light workout (Medium): +1 Power Point
+                Attend an exercise class (yoga/gym) (Medium): +1 Power Point
+                Engage in intense exercise like a 5km run / 1-hour futsal game (Hard): +2 Power Points
+
+    III. Reward System Mechanics:
+    The reward system integrates character stats (HICCUP), Experience Points (EXP), and leveling.
+
+        Stat Point Allocation:
+            Upon task completion, the character receives points for the specific attribute associated with that task (as detailed above).
+            Point values based on task difficulty:
+                Easy Task: +0.5 attribute points
+                Medium Task: +1 attribute point
+                Hard Task: +2 attribute points
+
+        Experience Points (EXP):
+            Every task also grants EXP based on its difficulty, regardless of which attribute it affects.
+            EXP values based on task difficulty:
+                Easy Task: +5 EXP
+                Medium Task: +10 EXP
+                Hard Task: +20 EXP
+
+        Star Currency:
+            An in-system currency used to purchase items from a "Shop."
+            Star Currency earned based on task difficulty:
+                Easy Task: +10 stars
+                Medium Task: +25 stars
+                Hard Task: +50 stars
+
+        Leveling:
+            The system incorporates a leveling mechanism based on accumulated EXP.
+            Level calculation: Level = 1 + (EXP / 100)²
+
     Verify if the provided evidence (text description and/or image) truthfully indicates that the task was completed properly and meets the requirements.
     Consider if the person is:
     1. Being honest about their completion.
     2. Actually completing the task properly according to the task description.
     3. Not slacking or doing a minimal effort (unless the task itself is minimal).
     4. If an image is provided, assess if it visually supports the task completion.
+
+    When determining which HICCUP attribute the task develops, carefully consider the nature of the task and match it to the most appropriate attribute.
 
     Task Description: $taskDescription
     ''';
@@ -244,12 +440,14 @@ x
     }
     
     parts.add({"text": '''
-    Respond with ONLY a JSON object containing two keys:
+    Respond with ONLY a JSON object containing the following keys:
     - "isValid": boolean (true if the completion is valid, false otherwise)
     - "reason": string (MUST provide a brief explanation ONLY if "isValid" is false, otherwise it should be null or an empty string)
+    - "suggestedAttribute": string (suggest which HICCUP attribute this task primarily develops based on task description)
+    
     Do not use markdown code fences.
-    Example of valid response: {"isValid": true, "reason": null}
-    Example of invalid response: {"isValid": false, "reason": "The description lacks detail about the specific steps taken."}
+    Example of valid response: {"isValid": true, "reason": null, "suggestedAttribute": "Health"}
+    Example of invalid response: {"isValid": false, "reason": "The description lacks detail about the specific steps taken.", "suggestedAttribute": "Intelligence"}
     '''.trim()});
 
 
@@ -286,12 +484,15 @@ x
               final decoded = jsonDecode(modelOutputText) as Map<String, dynamic>;
               if (decoded.containsKey('isValid') && decoded['isValid'] is bool) {
                  final reason = decoded['reason'];
+                 final suggestedAttribute = decoded['suggestedAttribute'] as String?;
+                 
                  if (reason == null || reason is String) {
                     return {
                         'isValid': decoded['isValid'],
                         'reason': (decoded['isValid'] == false && (reason == null || reason.isEmpty)) 
                                    ? 'AI rejected the completion but provided no specific reason.'
-                                   : reason
+                                   : reason,
+                        'suggestedAttribute': suggestedAttribute ?? 'Unity' // Default to Unity if no attribute suggested
                     };
                  }
               }
