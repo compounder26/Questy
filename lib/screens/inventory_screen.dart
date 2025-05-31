@@ -17,19 +17,32 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Scaffold(
       backgroundColor: AppTheme.darkBackground,
       appBar: AppBar(
-        title: const Text(
-          'Inventory',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            shadows: [
-              Shadow(
-                color: Colors.black,
-                offset: Offset(1, 1),
-                blurRadius: 2,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Image.asset(
+                'assets/images/appLogo.jpg',
+                height: 32,
+                width: 32,
               ),
-            ],
-          ),
+            ),
+            const Text(
+              'Inventory',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    offset: Offset(1, 1),
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -51,13 +64,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
                   borderRadius: BorderRadius.circular(12.0),
                 ),
-                child: const Text(
-                  'Your inventory is empty.\nPurchase permanent items from the Reward Shop!',
+                child: Text(
+                  'Your inventory is empty.\nPurchase collectible items from the Reward Shop!',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'PixelFont',
+                  style: AppTheme.pixelBodyStyle.copyWith(
                     fontSize: 18,
-                    color: Colors.white,
                   ),
                 ),
               ),
@@ -78,13 +89,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
               child: Column(
                 children: [
-                  const Text(
+                  Text(
                     'YOUR ITEMS',
-                    style: TextStyle(
-                      fontFamily: 'PixelFont',
+                    style: AppTheme.pixelHeadingStyle.copyWith(
                       fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -170,18 +178,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   children: [
                     Text(
                       item.name,
-                      style: TextStyle(
-                        fontFamily: 'PixelFont',
+                      style: AppTheme.pixelHeadingStyle.copyWith(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withOpacity(0.7),
-                            offset: const Offset(1, 1),
-                            blurRadius: 2,
-                          ),
-                        ],
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -195,10 +194,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           width: 1,
                         ),
                       ),
-                      child: const Text(
-                        'PERMANENT',
-                        style: TextStyle(
-                          fontFamily: 'PixelFont',
+                      child: Text(
+                        'COLLECTIBLE',
+                        style: AppTheme.pixelBodyStyle.copyWith(
                           fontSize: 10,
                           color: Colors.white,
                         ),
@@ -223,8 +221,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
             child: Text(
               item.description,
-              style: const TextStyle(
-                fontFamily: 'PixelFont',
+              style: AppTheme.pixelBodyStyle.copyWith(
                 fontSize: 14,
                 color: Colors.white,
                 height: 1.3,
@@ -243,8 +240,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               const SizedBox(width: 5),
               Text(
                 'Acquired: ${_formatDate(item.purchaseDate)}',
-                style: const TextStyle(
-                  fontFamily: 'PixelFont',
+                style: AppTheme.pixelBodyStyle.copyWith(
                   fontSize: 12,
                   color: Colors.amber,
                 ),

@@ -5,6 +5,7 @@ import 'screens/home_screen.dart';
 import 'screens/inventory_screen.dart';
 import 'services/ai_service.dart';
 import 'models/user.dart';
+import 'models/attribute_stats.dart';
 import 'providers/habit_provider.dart';
 import 'providers/character_provider.dart';
 import 'providers/inventory_provider.dart';
@@ -81,6 +82,16 @@ class MyApp extends StatelessWidget {
               User(
                 id: '1',
                 name: 'User',
+                starCurrency: 2000, // Start with 2000 stars
+                exp: 500, // Start with some initial EXP
+                attributeStats: AttributeStats(
+                  health: 5,
+                  intelligence: 5,
+                  charisma: 5,
+                  power: 5,
+                  cleanliness: 5,
+                  unity: 5,
+                ),
               ),
         ),
         ChangeNotifierProvider<HabitProvider>(
@@ -116,6 +127,7 @@ class MyApp extends StatelessWidget {
           ),
           useMaterial3: true,
           scaffoldBackgroundColor: const Color(0xFF121212),
+          fontFamily: 'ArcadeClassic',
           appBarTheme: const AppBarTheme(
             backgroundColor: Color(0xFF1E1E1E),
           ),
@@ -125,6 +137,7 @@ class MyApp extends StatelessWidget {
           appBarTheme: const AppBarTheme(
             backgroundColor: Color(0xFF1E1E1E),
           ),
+          textTheme: ThemeData.dark().textTheme.apply(fontFamily: 'ArcadeClassic'),
         ),
         themeMode: ThemeMode.dark,
         initialRoute: '/',

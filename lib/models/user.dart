@@ -3,6 +3,39 @@ import './reward.dart'; // Import the new Reward class
 import '../services/user_service.dart'; // Import the UserService
 import './attribute_stats.dart'; // Import the new AttributeStats class
 
+// New class for purchase history items
+class PurchaseHistoryItem {
+  final String itemId;
+  final String itemName;
+  final DateTime purchaseDate;
+  final bool isCollectible;
+  final String? iconAsset;
+
+  PurchaseHistoryItem({
+    required this.itemId,
+    required this.itemName,
+    required this.purchaseDate,
+    required this.isCollectible,
+    this.iconAsset,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'itemId': itemId,
+    'itemName': itemName,
+    'purchaseDate': purchaseDate.toIso8601String(),
+    'isCollectible': isCollectible,
+    'iconAsset': iconAsset,
+  };
+
+  factory PurchaseHistoryItem.fromJson(Map<String, dynamic> json) => PurchaseHistoryItem(
+    itemId: json['itemId'],
+    itemName: json['itemName'],
+    purchaseDate: DateTime.parse(json['purchaseDate']),
+    isCollectible: json['isCollectible'] ?? false, // Default to false if missing
+    iconAsset: json['iconAsset'],
+  );
+}
+
 class User extends ChangeNotifier {
   final String id;
   final String name;
@@ -11,6 +44,7 @@ class User extends ChangeNotifier {
   int exp; // New experience points separate from star currency
   List<String> ownedRewardIds; // Store IDs of owned rewards
   AttributeStats attributeStats; // New attribute stats
+  List<PurchaseHistoryItem> purchaseHistory; // New field for purchase history
 
   User({
     required this.id,
@@ -20,9 +54,11 @@ class User extends ChangeNotifier {
     this.exp = 0, // New property
     List<String>? ownedRewardIds,
     AttributeStats? attributeStats, // New parameter
+    List<PurchaseHistoryItem>? purchaseHistory, // New parameter
   }) : 
     ownedRewardIds = ownedRewardIds ?? [],
-    attributeStats = attributeStats ?? AttributeStats(); // Initialize with default stats
+    attributeStats = attributeStats ?? AttributeStats(),
+    purchaseHistory = purchaseHistory ?? []; // Initialize new field
 
   Map<String, dynamic> toJson() {
     return {
@@ -33,6 +69,7 @@ class User extends ChangeNotifier {
       'exp': exp, // New field in JSON
       'ownedRewardIds': ownedRewardIds,
       'attributeStats': attributeStats.toJson(), // Serialize attribute stats
+      'purchaseHistory': purchaseHistory.map((item) => item.toJson()).toList(), // Serialize purchase history
     };
   }
 
@@ -47,6 +84,9 @@ class User extends ChangeNotifier {
       attributeStats: json['attributeStats'] != null 
           ? AttributeStats.fromJson(json['attributeStats']) 
           : AttributeStats(), // Parse attributes if available
+      purchaseHistory: (json['purchaseHistory'] as List<dynamic>?)
+          ?.map((item) => PurchaseHistoryItem.fromJson(item as Map<String, dynamic>))
+          .toList() ?? [],
     );
   }
 
@@ -127,11 +167,24 @@ class User extends ChangeNotifier {
         }
       }
       
-      // For permanent items, we still track that the item has been purchased at least once
-      // but don't prevent repurchasing
-      if (!ownedRewardIds.contains(reward.id)) {
+      // Add to purchase history
+      purchaseHistory.add(PurchaseHistoryItem(
+        itemId: reward.id,
+        itemName: reward.name,
+        purchaseDate: DateTime.now(),
+        isCollectible: reward.isCollectible, // Use the updated field name
+        iconAsset: reward.iconAsset,
+      ));
+
+      // For collectible items, track ownership
+      if (reward.isCollectible && !ownedRewardIds.contains(reward.id)) {
         ownedRewardIds.add(reward.id);
       }
+      // For permanent items, we still track that the item has been purchased at least once
+      // but don't prevent repurchasing
+      // if (!ownedRewardIds.contains(reward.id)) {  // This logic is now handled by isCollectible check
+      //   ownedRewardIds.add(reward.id);
+      // }
       
       notifyListeners(); // Notify listeners about the change in starCurrency and rewards
       

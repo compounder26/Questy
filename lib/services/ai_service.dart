@@ -178,12 +178,13 @@ class AIService {
 
     The JSON object must contain the following keys:
     1.  `concisePromptTitle`: Create a short, clear title summarizing the overall goal/habit (e.g., "Learn Flutter Basics", "Daily Morning Meditation").
-    2.  `habitType`: Classify if this is a one-off 'goal' or a recurring 'habit'. Use the exact strings "goal" or "habit".
-    3.  `recurrence`: If it's a 'habit', determine the recurrence. Use the exact strings "daily", "weekly", or "none". If it's a 'goal', use "none".
-    4.  `weeklyTarget`: If `recurrence` is "weekly", determine the target number of completions per week (e.g., for "exercise 3 times a week", `weeklyTarget` would be 3). If not applicable, set to null.
-    5.  `endDate`: Determine if the request implies a specific duration (e.g., "for 3 weeks", "in 6 months", "by Dec 31st"). If a duration is found, calculate the corresponding end date from today (assume today is ${DateTime.now().toIso8601String().substring(0,10)}) and return it as an ISO 8601 string (YYYY-MM-DD). If no duration or it seems permanent, return null.
-    6.  `primaryAttribute`: Based on the HICCUP system, determine the primary attribute this habit/goal would develop (Health, Intelligence, Cleanliness, Charisma, Unity, or Power).
-    7.  `tasks`: Break down the overall goal/habit into smaller, manageable sub-tasks. For each task, provide:
+    2.  `habitType`: Classify the overall request. Use one of the exact strings: "goal" (for tasks that are done once) or "habit" (for tasks intended to be repeated indefinitely).
+    3.  `cooldownDurationInMinutes`: If `habitType` is "habit", provide an integer representing the cooldown in minutes (e.g., 30, 60, 120, 1440 for 24 hours, 2880 for 48 hours). This is how long the user must wait after completing the habit before they can log it again. If `habitType` is "goal", set this to `null`.
+    4.  `recurrence`: If `habitType` is "habit", determine the recurrence. Use the exact strings "daily", "weekly", or "none". If `habitType` is "goal", use "none".
+    5.  `weeklyTarget`: If `recurrence` is "weekly", determine the target number of completions per week (e.g., for "exercise 3 times a week", `weeklyTarget` would be 3). If not applicable, set to null.
+    6.  `endDate`: Determine if the request implies a specific duration (e.g., "for 3 weeks", "in 6 months", "by Dec 31st"). If a duration is found, calculate the corresponding end date from today (assume today is ${DateTime.now().toIso8601String().substring(0,10)}) and return it as an ISO 8601 string (YYYY-MM-DD). If no duration or it seems permanent (e.g. for a "habit"), return null.
+    7.  `primaryAttribute`: Based on the HICCUP system, determine the primary attribute this habit/goal would develop (Health, Intelligence, Cleanliness, Charisma, Unity, or Power).
+    8.  `tasks`: Break down the overall goal/habit into smaller, manageable sub-tasks. For each task, provide:
         *   `task`: A clear description of the sub-task.
         *   `difficulty`: Estimated difficulty ("Easy", "Medium", "Hard").
         *   `estimatedTime`: Estimated time to complete the sub-task in minutes (return as an integer).
@@ -258,7 +259,8 @@ class AIService {
 
             if (decoded is Map<String, dynamic>) {
                if (decoded.containsKey('concisePromptTitle') &&
-                   decoded.containsKey('habitType') &&
+                   decoded.containsKey('habitType') && // Ensure this key matches the prompt
+                   // cooldownDurationInMinutes is optional in the response if habitType is 'goal', so check for it carefully
                    decoded.containsKey('recurrence') &&
                    decoded.containsKey('tasks') &&
                    decoded['tasks'] is List) {

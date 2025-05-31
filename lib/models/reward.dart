@@ -7,7 +7,7 @@ class Reward {
   final int cost;
   final String? type; // Optional reward type for special handling
   final String? iconAsset; // Path to the icon image
-  final bool isPermanent; // Whether item goes to inventory or is consumed
+  final bool isCollectible; // Whether item goes to inventory or is consumed
   final Map<String, dynamic>? effectData; // Data for special effects
 
   Reward({
@@ -17,7 +17,7 @@ class Reward {
     required this.cost,
     this.type,
     this.iconAsset,
-    this.isPermanent = false, // Default to consumable
+    this.isCollectible = false, // Default to consumable
     this.effectData,
   });
 
@@ -31,7 +31,7 @@ class Reward {
           'Restore 15% of your total health. A quick fix for minor injuries.',
       cost: 40,
       iconAsset: 'assets/images/Items/items/small health potion.png',
-      isPermanent: false,
+      isCollectible: false,
       type: 'consumable',
       effectData: {'healthRestore': 0.15},
     ),
@@ -42,7 +42,7 @@ class Reward {
           'Restore 40% of your total health. For when battles get tough!',
       cost: 100,
       iconAsset: 'assets/images/Items/items/large health potion.png',
-      isPermanent: false,
+      isCollectible: false,
       type: 'consumable',
       effectData: {'healthRestore': 0.40},
     ),
@@ -53,7 +53,7 @@ class Reward {
           'A sturdy shield that reduces damage taken by 15% for the next 3 encounters.',
       cost: 200,
       iconAsset: 'assets/images/Items/items/Shield.png',
-      isPermanent: true,
+      isCollectible: true,
       type: 'defense_boost',
       effectData: {'damageReduction': 0.15, 'duration': 3},
     ),
@@ -64,7 +64,7 @@ class Reward {
           'The legendary sword increases your attack power by 25%. Only the worthy can wield it.',
       cost: 350,
       iconAsset: 'assets/images/Items/items/excalibur.png',
-      isPermanent: true,
+      isCollectible: true,
       type: 'attack_boost',
       effectData: {'attackBoost': 0.25},
     ),
@@ -75,7 +75,7 @@ class Reward {
           'This cuddly companion increases your charisma by 3 points and brings comfort during stressful times.',
       cost: 150,
       iconAsset: 'assets/images/Items/items/teddy bear.png',
-      isPermanent: true,
+      isCollectible: true,
       type: 'attribute_boost',
       effectData: {'attribute': 'charisma', 'amount': 3.0},
     ),
@@ -86,7 +86,7 @@ class Reward {
           'Removes one failed task from your history. Everyone deserves a second chance!',
       cost: 120,
       iconAsset: 'assets/images/Items/items/eraser.png',
-      isPermanent: false,
+      isCollectible: false,
       type: 'task_eraser',
       effectData: {'removeCount': 1},
     ),
@@ -97,7 +97,7 @@ class Reward {
           'Doubles all experience gained for the next 24 hours. Level up faster!',
       cost: 250,
       iconAsset: 'assets/images/Items/items/booster.png',
-      isPermanent: false,
+      isCollectible: false,
       type: 'exp_multiplier',
       effectData: {'multiplier': 2, 'duration': 24}, // Duration in hours
     ),
@@ -108,7 +108,7 @@ class Reward {
           'Doubles all star currency earned for the next 48 hours. Get rich quick!',
       cost: 300,
       iconAsset: 'assets/images/Items/items/coin doubler.png',
-      isPermanent: false,
+      isCollectible: false,
       type: 'currency_multiplier',
       effectData: {'multiplier': 2, 'duration': 48}, // Duration in hours
     ),
@@ -119,7 +119,7 @@ class Reward {
           'This enchanted cap increases your intelligence by 3 points and helps you focus on tasks.',
       cost: 180,
       iconAsset: 'assets/images/Items/items/topi ajaib.png',
-      isPermanent: true,
+      isCollectible: true,
       type: 'attribute_boost',
       effectData: {'attribute': 'intelligence', 'amount': 3.0},
     ),
@@ -130,7 +130,7 @@ class Reward {
           'Adds an extra hour to your day - use it to complete an overdue task without penalty!',
       cost: 280,
       iconAsset: 'assets/images/Items/items/ticker.png',
-      isPermanent: false,
+      isCollectible: false,
       type: 'time_extension',
       effectData: {'extraHours': 1},
     ),
@@ -144,7 +144,7 @@ class Reward {
         'cost': cost,
         'type': type,
         'iconAsset': iconAsset,
-        'isPermanent': isPermanent,
+        'isCollectible': isCollectible,
         'effectData': effectData,
       };
 
@@ -155,7 +155,7 @@ class Reward {
         cost: json['cost'],
         type: json['type'],
         iconAsset: json['iconAsset'],
-        isPermanent: json['isPermanent'] ?? false,
+        isCollectible: json['isCollectible'] ?? false,
         effectData: json['effectData'],
       );
 }

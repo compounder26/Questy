@@ -168,6 +168,12 @@ class HabitProvider extends ChangeNotifier {
     }
   }
 
+  // Added for compatibility with home_screen.dart which calls deleteHabit
+  Future<void> deleteHabit(String id) async {
+    // Simply delegate to removeHabit for consistent implementation
+    await removeHabit(id);
+  }
+
   // TODO: Add methods for loading/saving habits from persistence
   // e.g., Future<void> loadHabits();
   // e.g., Future<void> saveHabits();
