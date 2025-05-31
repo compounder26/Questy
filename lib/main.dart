@@ -6,9 +6,11 @@ import 'screens/inventory_screen.dart';
 import 'services/ai_service.dart';
 import 'models/user.dart';
 import 'models/attribute_stats.dart';
+import 'models/reward_persistence.dart'; // Import our new dedicated persistence system
 import 'providers/habit_provider.dart';
 import 'providers/character_provider.dart';
 import 'providers/inventory_provider.dart';
+import 'providers/reward_provider.dart'; // Import the new provider
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'services/user_service.dart';
@@ -19,6 +21,7 @@ import 'models/habit_task.dart';
 import 'models/enums/habit_type.dart';
 import 'models/enums/recurrence.dart';
 import 'models/inventory_item.dart';
+// Reward model is accessed indirectly through RewardPersistence
 import 'utils/env_config.dart';
 
 Future<void> main() async {
@@ -60,6 +63,12 @@ Future<void> main() async {
 
   // Load or create the user
   User? savedUser = await UserService.loadUser();
+  
+  // If we have a saved user, ensure it's properly persisted
+  if (savedUser != null) {
+    await UserService.saveUser(savedUser);
+    print('User data reloaded and saved on app start');
+  }
 
   runApp(MyApp(savedUser: savedUser));
 }
@@ -117,6 +126,13 @@ class MyApp extends StatelessWidget {
             return provider;
           },
         ),
+        ChangeNotifierProvider<RewardProvider>(
+          create: (context) {
+            final provider = RewardProvider();
+            // We'll load reward state after user is initialized
+            return provider;
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'Questy',
@@ -163,9 +179,52 @@ class _MainScreenState extends State<MainScreen> {
     const HomeScreen(),
   ];
 
+  late InventoryProvider _inventoryProvider;
+  late User _user;
+
   @override
   void initState() {
     super.initState();
+    // Get providers
+    _user = Provider.of<User>(context, listen: false);
+    _inventoryProvider = Provider.of<InventoryProvider>(context, listen: false);
+    
+    // Initialize app state synchronization
+    _initializeAppState();
+  }
+  
+  // Initialize all app state in the correct order
+  Future<void> _initializeAppState() async {
+    try {
+      print('========== APP RESTART: INITIALIZING STATE ==========');
+      
+      // Step 1: First load the user data from persistent storage
+      final freshUser = await UserService.loadUser();
+      if (freshUser != null) {
+        // Update our user instance with the fresh data including purchase history
+        _user.updateFromUser(freshUser);
+        print('Loaded user data: ${_user.ownedRewardIds.length} owned rewards, ${_user.purchaseHistory.length} purchase records');
+      } else {
+        print('No saved user found, using default user');
+      }
+      
+      // Step 2: SIMPLIFIED: Use our dedicated persistence system to load all reward state
+      final rewardStateLoaded = await RewardPersistence.loadAll(_user);
+      print('Reward persistence system loaded state: $rewardStateLoaded');
+      
+      // Step 3: SIMPLIFIED: Ensure inventory is synced with user's owned collectibles
+      await _inventoryProvider.syncWithUser(_user);
+      print('Inventory synced with user data');
+      
+      // Step 4: SIMPLIFIED: Final save of all state to ensure perfect consistency
+      await UserService.saveUser(_user);
+      print('User state saved after initialization');
+      
+      print('APP STATE INITIALIZATION COMPLETE WITH SIMPLIFIED REWARD PERSISTENCE');
+      print('========== INITIALIZATION COMPLETE ==========');
+    } catch (e) {
+      print('ERROR during app state initialization: $e');
+    }
   }
 
   @override

@@ -1,4 +1,4 @@
-import 'package:uuid/uuid.dart';
+// Removed UUID import as we now use explicit IDs
 import './user_reward_purchase_status.dart'; // Required for getters
 
 class Reward {
@@ -15,25 +15,49 @@ class Reward {
 
   // purchaseCount and lastPurchaseTime are removed as they are user-specific
 
-  // Getter for availability, now requires user-specific status
+  // COMPLETELY REVISED: Direct availability check with debug logging
   bool isAvailableForUser(UserRewardPurchaseStatus? status, bool isOwnedCollectible) {
+    // For collectibles, we absolutely refuse to allow repurchase if already owned
     if (isCollectible) {
-      return !isOwnedCollectible;
+      final result = !isOwnedCollectible;
+      print('AVAILABILITY CHECK: ${name} (collectible) - already owned: $isOwnedCollectible, available: $result');
+      return result;
     }
+    
+    // For consumables without limits, always available
     if (purchaseLimitPerPeriod == null) {
-      return true; // Always available if no limit
+      print('AVAILABILITY CHECK: ${name} (unlimited consumable) - always available');
+      return true;
     }
+    
+    // If no purchase history exists yet, it's available
     if (status == null) {
-      return true; // No purchase history, so available
+      print('AVAILABILITY CHECK: ${name} (limited consumable) - no status yet, available');
+      return true;
     }
-    // Check cooldown
+    
+    // Check cooldown for consumables with limits
     if (status.cooldownStartTime != null && purchasePeriodHours != null) {
       final cooldownEndTime = status.cooldownStartTime!.add(Duration(hours: purchasePeriodHours!));
-      if (DateTime.now().isBefore(cooldownEndTime)) {
-        return false; // On cooldown
+      final now = DateTime.now();
+      
+      // Is it still on cooldown?
+      final stillOnCooldown = now.isBefore(cooldownEndTime);
+      
+      if (stillOnCooldown) {
+        final remaining = cooldownEndTime.difference(now);
+        print('AVAILABILITY CHECK: ${name} - ON COOLDOWN for ${remaining.inMinutes} more minutes');
+        return false; // Still on cooldown
+      } else {
+        print('AVAILABILITY CHECK: ${name} - cooldown expired, now available');
+        return true; // Cooldown expired
       }
     }
-    return status.purchaseCount < purchaseLimitPerPeriod!;
+    
+    // Check purchase count against limit
+    final underLimit = status.purchaseCount < purchaseLimitPerPeriod!;
+    print('AVAILABILITY CHECK: ${name} - count: ${status.purchaseCount}/${purchaseLimitPerPeriod}, available: $underLimit');
+    return underLimit;
   }
 
   // Getter for availability text, requires user-specific status
@@ -63,7 +87,7 @@ class Reward {
   }
 
   Reward({
-    String? id,
+    required String id, // Make ID required and stable
     required this.name,
     required this.description,
     required this.cost,
@@ -73,9 +97,8 @@ class Reward {
     this.effectData,
     this.purchaseLimitPerPeriod,
     this.purchasePeriodHours,
-    // purchaseCount and lastPurchaseTime constructor params removed
   }) : 
-    id = id ?? const Uuid().v4();
+    id = id; // Use the provided ID directly
 
   // markAsPurchased and updateCooldown methods are removed.
   // This logic is now handled within User.purchaseReward and by checking UserRewardPurchaseStatus.
@@ -84,6 +107,7 @@ class Reward {
   static final List<Reward> availableRewards = [
     // Consumable rewards
     Reward(
+      id: 'exp_potion_small',
       name: 'EXP Potion (S)',
       description: 'Tambah 10 EXP',
       cost: 40,
@@ -95,6 +119,7 @@ class Reward {
       purchasePeriodHours: 24, // 3x per day
     ),
     Reward(
+      id: 'exp_potion_large',
       name: 'EXP Potion (L)',
       description: 'Tambah 30 EXP',
       cost: 100,
@@ -106,6 +131,7 @@ class Reward {
       purchasePeriodHours: 24, // 1x per day
     ),
     Reward(
+      id: 'task_eraser',
       name: 'Task Eraser',
       description: 'Hapus 1 task aktif tanpa penalti (tidak dapat digunakan pada task Hard)',
       cost: 30,
@@ -117,6 +143,7 @@ class Reward {
       purchasePeriodHours: 24, // 2x per day
     ),
     Reward(
+      id: 'focus_booster',
       name: 'Focus Booster',
       description: 'Mengaktifkan "Focus Mode" 30 menit: reward task ditingkatkan 1.5x',
       cost: 50,
@@ -128,6 +155,7 @@ class Reward {
       purchasePeriodHours: 6, // 1x per 6 hours
     ),
     Reward(
+      id: 'daily_reset_ticket',
       name: 'Daily Reset Ticket',
       description: 'Reset seluruh task harian (digunakan jika user ingin re-roll task)',
       cost: 15,
@@ -138,6 +166,7 @@ class Reward {
       purchasePeriodHours: 24, // 1x per day
     ),
     Reward(
+      id: 'coin_doubler',
       name: 'Coin Doubler (3 jam)',
       description: 'Coin dari task selama 3 jam berikutnya dikalikan 2',
       cost: 30,
@@ -151,6 +180,7 @@ class Reward {
     
     // Collectible rewards (can only be purchased once)
     Reward(
+      id: 'excalibur',
       name: 'Excalibur',
       description: 'A sword of kings, risen from a mysterious lake',
       cost: 450,
@@ -159,6 +189,7 @@ class Reward {
       type: 'collectible',
     ),
     Reward(
+      id: 'pirate_patch',
       name: 'Pirate Patch',
       description: 'A pirate\'s mark, covers an eye that never misses its prey',
       cost: 400,
@@ -167,6 +198,7 @@ class Reward {
       type: 'collectible',
     ),
     Reward(
+      id: 'old_picture',
       name: 'Old Picture',
       description: 'A faded portrait that whispers forgotten tales',
       cost: 300,
@@ -175,6 +207,7 @@ class Reward {
       type: 'collectible',
     ),
     Reward(
+      id: 'antique_stopwatch',
       name: 'Antique Stopwatch',
       description: 'Said to glimpse moments yet to come',
       cost: 400,
@@ -183,6 +216,7 @@ class Reward {
       type: 'collectible',
     ),
     Reward(
+      id: 'lucky_coin',
       name: 'Lucky Coin',
       description: 'Whispers say luck follows those who carry this charm',
       cost: 300,
@@ -191,6 +225,7 @@ class Reward {
       type: 'collectible',
     ),
     Reward(
+      id: 'crystal_orb',
       name: 'Crystal Orb',
       description: 'A glowing orb said to hold the secrets of the unseen',
       cost: 450,
@@ -199,6 +234,7 @@ class Reward {
       type: 'collectible',
     ),
     Reward(
+      id: 'warrior_trophy',
       name: 'Warrior\'s Trophy',
       description: 'A symbol of victory, forged from sweat and valor',
       cost: 450,
@@ -207,6 +243,7 @@ class Reward {
       type: 'collectible',
     ),
     Reward(
+      id: 'teddy_bear',
       name: 'Teddy Bear Doll',
       description: 'Once a gift of warmth, now a silent guardian',
       cost: 400,
@@ -215,6 +252,7 @@ class Reward {
       type: 'collectible',
     ),
     Reward(
+      id: 'witch_hat',
       name: 'Witch\'s Hat',
       description: 'Worn by witches, heavy with old magic',
       cost: 450,

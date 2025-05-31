@@ -3,6 +3,7 @@ import './reward.dart'; // Import the new Reward class
 import '../services/user_service.dart'; // Import the UserService
 import './attribute_stats.dart'; // Import the new AttributeStats class
 import './user_reward_purchase_status.dart'; // Import for consumable reward status
+import './reward_persistence.dart'; // Import our new dedicated persistence system
 
 // New class for purchase history items
 class PurchaseHistoryItem {
@@ -79,7 +80,8 @@ class User extends ChangeNotifier {
   }
 
   factory User.fromJson(Map<String, dynamic> json) {
-    return User(
+    // First parse the basic user data
+    final user = User(
       id: json['id'] ?? 'default_user_id',
       name: json['name'] ?? 'Default User',
       starCurrency: json['starCurrency'] ?? json['points'] ?? 0, // Handle both new and old field names
@@ -96,6 +98,11 @@ class User extends ChangeNotifier {
           ?.map((key, value) => MapEntry(key, UserRewardPurchaseStatus.fromJson(value as Map<String, dynamic>))) 
           ?? {},
     );
+    
+    // Process reward statuses to check for expired cooldowns
+    user._refreshRewardStatuses();
+    
+    return user;
   }
 
   // Method to add star currency (previously points)
@@ -151,111 +158,79 @@ class User extends ChangeNotifier {
 
   // Method to attempt purchasing a reward
   bool purchaseReward(Reward reward) {
+    print('PURCHASE ATTEMPT: ${reward.name} (ID: ${reward.id})');
+    
+    // Directly check availability using our persistence system
+    if (!RewardPersistence.isRewardAvailable(this, reward)) {
+      print('PURCHASE BLOCKED: ${reward.name} is not available for purchase');
+      return false;
+    }
+
     // Check if user has enough currency
     if (starCurrency < reward.cost) {
-      print('Purchase failed: Insufficient star currency.');
+      print('PURCHASE FAILED: Insufficient star currency');
       return false; // Insufficient funds
     }
 
+    // Process purchase based on item type
+    starCurrency -= reward.cost;
+    
     // Handle collectible items
     if (reward.isCollectible) {
-      if (ownedRewardIds.contains(reward.id)) {
-        print('Purchase failed: Collectible item already owned.');
-        return false; // Already owned
-      }
-      starCurrency -= reward.cost;
+      // Mark as owned
       ownedRewardIds.add(reward.id);
-      // Add to general purchase history
-      purchaseHistory.add(PurchaseHistoryItem(
-        itemId: reward.id,
-        itemName: reward.name,
-        purchaseDate: DateTime.now(),
-        isCollectible: true,
-        iconAsset: reward.iconAsset,
-      ));
-      // Apply effects if any (though collectibles might not have immediate use effects like consumables)
-      _applyRewardEffects(reward);
-      notifyListeners();
-      UserService.saveUser(this);
-      return true;
-    }
-
-    // Handle consumable items (or items without specific collectible status but with limits)
-    if (reward.purchaseLimitPerPeriod != null && reward.purchasePeriodHours != null) {
+      print('COLLECTIBLE PURCHASED: ${reward.name} (ID: ${reward.id})');
+    } 
+    // Handle consumable items with limits
+    else if (reward.purchaseLimitPerPeriod != null && reward.purchasePeriodHours != null) {
+      // Get or create status for this reward
       UserRewardPurchaseStatus status = consumableRewardStatus[reward.id] ?? 
-                                      UserRewardPurchaseStatus(rewardId: reward.id);
-
-      // Check cooldown status
-      if (status.cooldownStartTime != null) {
-        final cooldownEndTime = status.cooldownStartTime!.add(Duration(hours: reward.purchasePeriodHours!));
-        if (DateTime.now().isBefore(cooldownEndTime)) {
-          print('Purchase failed: Item is on cooldown.');
-          return false; // Item on cooldown
-        } else {
-          // Cooldown has passed, reset status
-          status = status.copyWith(purchaseCount: 0, setCooldownStartTimeToNull: true);
-        }
-      }
-
-      // Check purchase limit
-      if (status.purchaseCount >= reward.purchaseLimitPerPeriod!) {
-        // This case should ideally be caught by cooldown, but as a safeguard:
-        // If limit is met, and not on cooldown (e.g. first time hitting limit after reset)
-        // We should initiate cooldown here if not already done.
-        // However, the purchase itself should be denied if count is already at limit.
-        print('Purchase failed: Purchase limit reached for the period.');
-        // Ensure cooldown is set if it wasn't (e.g., if data was manually changed or an edge case)
-        if (status.cooldownStartTime == null) {
-            consumableRewardStatus[reward.id] = status.copyWith(cooldownStartTime: DateTime.now());
-            notifyListeners();
-            UserService.saveUser(this);
-        }
-        return false; 
-      }
-
-      // Process the purchase for consumable
-      starCurrency -= reward.cost;
-      int newPurchaseCount = status.purchaseCount + 1;
+                                    UserRewardPurchaseStatus(rewardId: reward.id);
+      
+      // Update purchase count
+      int newCount = status.purchaseCount + 1;
       DateTime? newCooldownStartTime = status.cooldownStartTime;
-
-      if (newPurchaseCount >= reward.purchaseLimitPerPeriod!) {
-        newCooldownStartTime = DateTime.now(); // Start cooldown as limit is now hit
+      
+      // Set cooldown if limit reached
+      if (newCount >= reward.purchaseLimitPerPeriod!) {
+        newCooldownStartTime = DateTime.now();
+        print('COOLDOWN STARTED: ${reward.name} - next available in ${reward.purchasePeriodHours} hours');
       }
       
+      // Update status
       consumableRewardStatus[reward.id] = status.copyWith(
-        purchaseCount: newPurchaseCount,
+        purchaseCount: newCount,
         cooldownStartTime: newCooldownStartTime,
       );
       
-      // Add to general purchase history
-      purchaseHistory.add(PurchaseHistoryItem(
-        itemId: reward.id,
-        itemName: reward.name,
-        purchaseDate: DateTime.now(),
-        isCollectible: false,
-        iconAsset: reward.iconAsset,
-      ));
-      _applyRewardEffects(reward);
-      notifyListeners();
-      UserService.saveUser(this);
-      return true;
-
-    } else {
-      // Consumable item without a specific limit/cooldown (behaves like a simple purchase)
-      starCurrency -= reward.cost;
-      // Add to general purchase history
-      purchaseHistory.add(PurchaseHistoryItem(
-        itemId: reward.id,
-        itemName: reward.name,
-        purchaseDate: DateTime.now(),
-        isCollectible: false, // Assuming if not collectible and no limit, it's a generic consumable
-        iconAsset: reward.iconAsset,
-      ));
-      _applyRewardEffects(reward);
-      notifyListeners();
-      UserService.saveUser(this);
-      return true;
+      print('CONSUMABLE PURCHASED: ${reward.name}, count: $newCount/${reward.purchaseLimitPerPeriod}');
     }
+    // Simple consumables with no limits need no special handling
+    else {
+      print('SIMPLE CONSUMABLE PURCHASED: ${reward.name}');
+    }
+    
+    // Always add to purchase history
+    purchaseHistory.add(PurchaseHistoryItem(
+      itemId: reward.id,
+      itemName: reward.name,
+      purchaseDate: DateTime.now(),
+      isCollectible: reward.isCollectible,
+      iconAsset: reward.iconAsset,
+    ));
+    
+    // Apply any special effects
+    _applyRewardEffects(reward);
+    
+    // Save changes through both systems to ensure consistency
+    notifyListeners();
+    UserService.saveUser(this);
+    
+    // CRITICAL: Use our dedicated persistence system for reward data
+    RewardPersistence.updateAfterPurchase(this, reward);
+    
+    print('PURCHASE COMPLETE: ${reward.name}');
+    return true;
   }
 
   // Helper method to apply reward effects, extracted for clarity
@@ -284,10 +259,91 @@ class User extends ChangeNotifier {
     }
   }
 
+  // Refresh reward statuses when loading the user - check for expired cooldowns
+  void _refreshRewardStatuses() {
+    final now = DateTime.now();
+    bool needsSave = false;
+    
+    // Process all consumable reward statuses to check for expired cooldowns
+    for (final entry in consumableRewardStatus.entries.toList()) {
+      final rewardId = entry.key;
+      final status = entry.value;
+      
+      // Skip if no cooldown is set
+      if (status.cooldownStartTime == null) continue;
+      
+      // Find the corresponding reward
+      final matchingRewards = Reward.availableRewards.where(
+        (r) => r.id == rewardId && r.purchasePeriodHours != null && !r.isCollectible
+      ).toList();
+      
+      // Skip if reward not found
+      if (matchingRewards.isEmpty) continue;
+      
+      final reward = matchingRewards.first;
+      
+      // Check if cooldown has expired
+      final cooldownEndTime = status.cooldownStartTime!.add(Duration(hours: reward.purchasePeriodHours!));
+      
+      if (now.isAfter(cooldownEndTime)) {
+        // Cooldown expired, reset purchase count
+        consumableRewardStatus[rewardId] = status.copyWith(
+          purchaseCount: 0,
+          setCooldownStartTimeToNull: true,
+        );
+        needsSave = true;
+        print('Reset expired cooldown for reward ID ${rewardId} during user load');
+      }
+    }
+    
+    // If changes were made, save the user
+    if (needsSave) {
+      UserService.saveUser(this);
+      print('User data saved after refreshing reward statuses');
+    }
+  }
+  
   // Optional: Method to get the actual Reward objects the user owns
   List<Reward> get ownedRewards {
     return Reward.availableRewards
         .where((reward) => ownedRewardIds.contains(reward.id))
         .toList();
+  }
+  
+  // Method to update user data from another user instance
+  // This ensures consistent state when loading from persistence
+  void updateFromUser(User other) {
+    // Update basic properties
+    starCurrency = other.starCurrency;
+    level = other.level;
+    exp = other.exp;
+    
+    // Update reward-related properties (deep copy to avoid reference issues)
+    ownedRewardIds = List<String>.from(other.ownedRewardIds);
+    
+    // Deep copy the purchase history
+    purchaseHistory = other.purchaseHistory.map((item) => PurchaseHistoryItem(
+      itemId: item.itemId,
+      itemName: item.itemName,
+      purchaseDate: item.purchaseDate,
+      isCollectible: item.isCollectible,
+      iconAsset: item.iconAsset,
+    )).toList();
+    
+    // Deep copy the consumable reward status
+    consumableRewardStatus = {};
+    other.consumableRewardStatus.forEach((key, value) {
+      consumableRewardStatus[key] = UserRewardPurchaseStatus(
+        rewardId: value.rewardId,
+        purchaseCount: value.purchaseCount,
+        cooldownStartTime: value.cooldownStartTime,
+      );
+    });
+    
+    // Update attribute stats
+    attributeStats = AttributeStats.fromJson(other.attributeStats.toJson());
+    
+    // Notify listeners of the update
+    notifyListeners();
   }
 } 
