@@ -4,14 +4,19 @@ import 'package:flutter/material.dart';
 class AppTheme {
   // Prevent instantiation
   AppTheme._();
-  
+
   // Asset paths
-  static const String woodBackgroundPath = 'assets/images/Accesories/wood bg.png';
-  static const String borderFramePath = 'assets/images/Accesories/ChatGPT Image May 20, 2025, 01_32_10 PM.png';
-  static const String headerBackgroundPath = 'assets/images/border/headerBackground.png';
+  static const String woodBackgroundPath =
+      'assets/images/Accesories/wood bg.png';
+  static const String borderFramePath =
+      'assets/images/Accesories/ChatGPT Image May 20, 2025, 01_32_10 PM.png';
+  static const String headerBackgroundPath =
+      'assets/images/border/headerBackground.png';
   static const String checkboxPath = 'assets/images/border/checkkbox.png';
-  static const String checkedBoxPath = 'assets/images/border/checkkbox.png'; // Will need an actual checked version
-  
+  static const String checkedBoxPath =
+      'assets/images/border/checkkbox.png'; // Will need an actual checked version
+  static const String appLogoPath = 'assets/images/appLogo.jpg';
+
   // Colors
   static const Color primaryBrown = Color(0xFF8B4513);
   static const Color lightWood = Color(0xFFDEB887);
@@ -19,15 +24,15 @@ class AppTheme {
   static const Color greenHighlight = Color(0xFF4CAF50);
   static const Color redHighlight = Color(0xFFF44336);
   static const Color blueHighlight = Color(0xFF2196F3);
-  
+
   // Dark theme colors
   static const Color darkBackground = Color(0xFF121212);
   static const Color darkSurface = Color(0xFF1E1E1E);
   static const Color darkCardBackground = Color(0xFF2A2A2A);
-  
+
   // Text styles
   static const TextStyle pixelHeadingStyle = TextStyle(
-    fontFamily: 'PixelFont', // Default font - will be overridden if a pixel font is added
+    fontFamily: 'ArcadeClassic',
     fontSize: 24,
     fontWeight: FontWeight.bold,
     color: Colors.white,
@@ -39,9 +44,9 @@ class AppTheme {
       ),
     ],
   );
-  
+
   static const TextStyle pixelBodyStyle = TextStyle(
-    fontFamily: 'PixelFont', // Default font - will be overridden if a pixel font is added
+    fontFamily: 'ArcadeClassic',
     fontSize: 16,
     color: Colors.white,
     shadows: [
@@ -52,7 +57,7 @@ class AppTheme {
       ),
     ],
   );
-  
+
   // Decorations
   static BoxDecoration woodenFrameDecoration = BoxDecoration(
     image: const DecorationImage(
@@ -72,8 +77,8 @@ class AppTheme {
       ),
     ],
   );
-  
+
   // Paddings
   static const EdgeInsets cardPadding = EdgeInsets.all(16.0);
   static const EdgeInsets contentPadding = EdgeInsets.all(8.0);
-} 
+}

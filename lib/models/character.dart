@@ -1,10 +1,10 @@
-
 // Enum for gender clarity
 enum Gender { male, female }
 
 class Character {
   final Gender gender;
-  final int variant; // Added variant property for different character appearances
+  final int
+      variant; // Added variant property for different character appearances
   // Color skinColor; // Removed skinColor property
   // String hairStyle; // Identifier like 'style1', 'style2'
   // Color hairColor; // Actual color
@@ -17,24 +17,22 @@ class Character {
   String get bodyAsset {
     // Ensure variant is not null, defaulting to 1 if it somehow is
     final safeVariant = variant > 0 ? variant : 1;
-    
+
     // Variant-specific asset paths
     if (gender == Gender.male) {
       return 'assets/images/Character/male$safeVariant.png';
     } else {
       // Handle typo in femal1.png vs female naming
-      return safeVariant == 1 
-          ? 'assets/images/Character/femal1.png' 
-          : 'assets/images/Character/female$safeVariant.png';
+      return 'assets/images/Character/female$safeVariant.png';
     }
   }
-  
+
   // Get available variants for each gender
   static List<int> getVariantsForGender(Gender gender) {
     if (gender == Gender.male) {
-      return [1, 2]; // Male variants
+      return [1, 2, 3]; // Male variants
     } else {
-      return [1, 2, 3, 4, 5]; // Female variants
+      return [1, 2, 3]; // Female variants
     }
   }
 
@@ -55,7 +53,7 @@ class Character {
     // this.clothingStyle = 'shirt1',
     // this.clothingColor = Colors.red,
   });
-  
+
   // Factory constructor with defaults
   factory Character.defaultCharacter() {
     return const Character(
@@ -63,4 +61,4 @@ class Character {
       variant: 1,
     );
   }
-} 
+}

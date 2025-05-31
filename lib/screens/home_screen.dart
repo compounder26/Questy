@@ -5,6 +5,7 @@ import '../models/user.dart';
 import '../models/reward.dart';
 import '../models/attribute_stats.dart';
 import '../services/ai_service.dart';
+import '../theme/app_theme.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import '../providers/habit_provider.dart';
 import '../providers/character_provider.dart';
@@ -22,6 +23,7 @@ import '../theme/app_theme.dart';
 import '../widgets/pixel_button.dart';
 import '../widgets/pixel_checkbox.dart';
 import '../utils/string_extensions.dart';
+import 'package:questy/widgets/cooldown_timer_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -557,10 +559,27 @@ class _HomeScreenState extends State<HomeScreen> {
                                 )
                               else
                                 ...habit.tasks.map((task) {
+                                  // Determine if THIS TASK is on cooldown
+                                  bool onCooldown = false;
+                                  if (habit.habitType == HabitType.habit &&
+                                      habit.cooldownDurationInMinutes != null &&
+                                      habit.cooldownDurationInMinutes! > 0 &&
+                                      task.lastVerifiedTimestamp != null) {
+                                    final cooldownEndTime = task
+                                        .lastVerifiedTimestamp!
+                                        .add(Duration(
+                                            minutes: habit
+                                                .cooldownDurationInMinutes!));
+                                    onCooldown = DateTime.now()
+                                        .isBefore(cooldownEndTime);
+                                  }
+                                  // CooldownTimerWidget will handle text display and updates
+
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 8.0),
                                     child: InkWell(
-                                      onTap: task.isCompleted
+                                      // Disable onTap if task is completed OR habit is on cooldown
+                                      onTap: task.isCompleted || onCooldown
                                           ? null
                                           : () => _verifyTaskCompletion(
                                               task, habit),
@@ -571,7 +590,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                         children: [
                                           PixelCheckbox(
                                             value: task.isCompleted,
-                                            onChanged: task.isCompleted
+                                            // Disable onChanged if task is completed OR habit is on cooldown
+                                            onChanged: task.isCompleted ||
+                                                    onCooldown
                                                 ? null
                                                 : (_) => _verifyTaskCompletion(
                                                     task, habit),
@@ -590,6 +611,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                                         ? TextDecoration
                                                             .lineThrough
                                                         : null,
+                                                    color: onCooldown
+                                                        ? Colors.grey[600]
+                                                        : Colors
+                                                            .white, // Dim text if on cooldown
                                                   ),
                                                 ),
                                                 Text(
@@ -597,9 +622,28 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   style: AppTheme.pixelBodyStyle
                                                       .copyWith(
                                                     fontSize: 12,
-                                                    color: Colors.white70,
+                                                    color: onCooldown
+                                                        ? Colors.grey[700]
+                                                        : Colors.white70,
                                                   ),
                                                 ),
+                                                if (onCooldown &&
+                                                    task.lastVerifiedTimestamp !=
+                                                        null &&
+                                                    habit.cooldownDurationInMinutes !=
+                                                        null) // Ensure necessary data is present
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                            top: 4.0),
+                                                    child: CooldownTimerWidget(
+                                                      lastVerifiedTimestamp: task
+                                                          .lastVerifiedTimestamp!, // Use task's timestamp
+                                                      cooldownDurationInMinutes:
+                                                          habit
+                                                              .cooldownDurationInMinutes!, // Use habit's duration
+                                                    ),
+                                                  ),
                                               ],
                                             ),
                                           ),
@@ -670,7 +714,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Consumer<User>(
                 builder: (context, user, child) {
                   final available = Reward.availableRewards;
-                
+
                   if (available.isEmpty) {
                     return const Center(
                       child: Text(
@@ -686,13 +730,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (context, index) {
                       final reward = available[index];
                       final bool canAfford = user.starCurrency >= reward.cost;
-                      
+
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: InkWell(
                           onTap: !canAfford
                               ? null
-                              : () => _showRewardConfirmation(context, reward, user),
+                              : () => _showRewardConfirmation(
+                                  context, reward, user),
                           borderRadius: BorderRadius.circular(8.0),
                           child: Container(
                             padding: const EdgeInsets.all(12.0),
@@ -723,7 +768,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: reward.iconAsset != null
                                       ? Image.asset(
                                           reward.iconAsset!,
-                                          errorBuilder: (context, error, stackTrace) => const Icon(
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  const Icon(
                                             Icons.diamond,
                                             size: 30,
                                           ),
@@ -737,7 +784,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
@@ -759,19 +807,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                       const SizedBox(height: 8),
                                       Wrap(
                                         spacing: 8,
-                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
                                         children: [
                                           Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Text(
                                                 'Cost: ${reward.cost}',
-                                                style: AppTheme.pixelBodyStyle.copyWith(
+                                                style: AppTheme.pixelBodyStyle
+                                                    .copyWith(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.bold,
                                                   color: canAfford
                                                       ? Colors.yellowAccent
-                                                      : Colors.white.withOpacity(0.6),
+                                                      : Colors.white
+                                                          .withOpacity(0.6),
                                                 ),
                                               ),
                                               const SizedBox(width: 5),
@@ -782,25 +833,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ),
                                             ],
                                           ),
-                                            // Display item type
-                                            if (reward.isPermanent)
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.purple.withOpacity(0.7),
-                                                  borderRadius: BorderRadius.circular(4),
+                                          // Display item type
+                                          if (reward.isCollectible)
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.purple
+                                                    .withOpacity(0.7),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: const Text(
+                                                'COLLECTIBLE',
+                                                style: TextStyle(
+                                                  fontFamily: 'PixelFont',
+                                                  fontSize: 10,
+                                                  color: Colors.white,
                                                 ),
-                                                child: const Text(
-                                                  'PERMANENT',
-                                                  style: TextStyle(
-                                                    fontFamily: 'PixelFont',
-                                                    fontSize: 10,
-                                                    color: Colors.white,
-                                                  ),
-                                                ),
-                                              )
-                                          ],
-                                        ),
+                                              ),
+                                            )
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -810,7 +866,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: PixelButton(
                                     // Always enable button if user can afford the item
                                     onPressed: canAfford
-                                        ? () => _showRewardConfirmation(context, reward, user)
+                                        ? () => _showRewardConfirmation(
+                                            context, reward, user)
                                         : null,
                                     backgroundColor: canAfford
                                         ? AppTheme.darkWood
@@ -843,7 +900,95 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showRewardConfirmation(BuildContext context, Reward reward, User user) {
-    final inventoryProvider = Provider.of<InventoryProvider>(context, listen: false);
+    final inventoryProvider =
+        Provider.of<InventoryProvider>(context, listen: false);
+
+    // Check if user can afford the item first
+    if (user.starCurrency < reward.cost) {
+      // Show not enough stars popup
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: Colors.transparent,
+            contentPadding: EdgeInsets.zero,
+            content: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: AppTheme.woodenFrameDecoration.copyWith(
+                image: const DecorationImage(
+                  image: AssetImage(AppTheme.woodBackgroundPath),
+                  fit: BoxFit.cover,
+                  opacity: 0.8,
+                ),
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'NOT ENOUGH STARS',
+                    style: TextStyle(
+                      fontFamily: 'PixelFont',
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.amber,
+                    size: 60,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'You need more stars to purchase this item!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'PixelFont',
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${reward.cost - user.starCurrency} more stars needed',
+                        style: const TextStyle(
+                          fontFamily: 'PixelFont',
+                          fontSize: 14,
+                          color: Colors.amber,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  PixelButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    backgroundColor: AppTheme.darkWood,
+                    child: const Text(
+                      'OK',
+                      style: TextStyle(
+                        fontFamily: 'PixelFont',
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+      return;
+    }
+
+    // If user can afford, show the purchase confirmation
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -880,36 +1025,36 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'Do you want to buy ${reward.name} for ${reward.cost} stars?',
-                  style: const TextStyle(
-                    fontFamily: 'PixelFont',
-                    fontSize: 16,
-                    color: Colors.white,
+                    style: const TextStyle(
+                      fontFamily: 'PixelFont',
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${reward.cost}',
-                      style: const TextStyle(
-                        fontFamily: 'PixelFont',
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.yellowAccent,
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${reward.cost}',
+                        style: const TextStyle(
+                          fontFamily: 'PixelFont',
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.yellowAccent,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Image.asset(
-                      'assets/images/Accesories/starstar.png',
-                      width: 30,
-                      height: 30,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  reward.description,
+                      const SizedBox(width: 8),
+                      Image.asset(
+                        'assets/images/Accesories/starstar.png',
+                        width: 30,
+                        height: 30,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    reward.description,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontFamily: 'PixelFont',
@@ -941,8 +1086,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           final success = user.purchaseReward(reward);
                           Navigator.of(context).pop();
                           if (success) {
-                            // Add to inventory if it's a permanent item
-                            if (reward.isPermanent) {
+                            // Add to inventory if it's a collectible item
+                            if (reward.isCollectible) {
                               inventoryProvider.addItem(reward);
                             } else {
                               // Show consumable item effect
@@ -953,16 +1098,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 backgroundColor: AppTheme.greenHighlight,
                                 content: Text(
                                   '${reward.name} purchased!',
-                                  style: AppTheme.pixelBodyStyle,
-                                ),
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                backgroundColor: AppTheme.redHighlight,
-                                content: Text(
-                                  'Purchase failed. Not enough stars or already owned.',
                                   style: AppTheme.pixelBodyStyle,
                                 ),
                               ),
@@ -1136,22 +1271,22 @@ class _HomeScreenState extends State<HomeScreen> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2A2A2A),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: AppTheme.darkWood,
-                              width: 2,
-                            ),
-                          ),
-                          child: Text(
-                            'Task: ${task.description}',
-                            style: AppTheme.pixelBodyStyle,
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2A2A),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppTheme.darkWood,
+                            width: 2,
                           ),
                         ),
+                        child: Text(
+                          'Task: ${task.description}',
+                          style: AppTheme.pixelBodyStyle,
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       const Text(
                         'Describe your completion:',
@@ -1375,7 +1510,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Show a loading dialog while verification is in progress
       // Create a reference to store the loading dialog context for dismissal later
       BuildContext? loadingDialogContext;
-      
+
       // Show a loading dialog while verification is in progress
       showDialog(
         context: context,
@@ -1419,7 +1554,7 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       );
-      
+
       final String currentDescription = result['description'] ?? '';
       final XFile? currentImageXFile = result['image'];
       Uint8List? imageData;
@@ -1482,12 +1617,14 @@ class _HomeScreenState extends State<HomeScreen> {
               : task.difficulty.toLowerCase() == 'medium'
                   ? 1.0
                   : 2.0;
-                  
+
           if (suggestedAttribute != null) {
             // Use the AI's suggested attribute
-            user.increaseAttribute(suggestedAttribute.toLowerCase(), attributeAmount);
+            user.increaseAttribute(
+                suggestedAttribute.toLowerCase(), attributeAmount);
             // Store the attribute change in the task
-            task.attributesAwarded![suggestedAttribute.toLowerCase()] = attributeAmount;
+            task.attributesAwarded![suggestedAttribute.toLowerCase()] =
+                attributeAmount;
           } else {
             // Fallback to analyzing the task content
             if (parentHabit.habitType == HabitType.goal) {
@@ -1545,26 +1682,29 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           // Update Weekly Progress & Habit Last Updated
-          bool habitStateChanged = false;
           if (parentHabit.recurrence == Recurrence.weekly &&
               parentHabit.weeklyTarget != null) {
             if (!parentHabit.isWeeklyGoalMet) {
               parentHabit.weeklyProgress++;
-              habitStateChanged = true;
             } else {
               print(
                   "Weekly goal already met for: ${parentHabit.concisePromptTitle}");
             }
           }
-          parentHabit.lastUpdated = DateTime.now();
-          habitStateChanged = true;
+          parentHabit.lastUpdated =
+              DateTime.now(); // This ensures the habit is marked as updated
+
+          // If this task is part of a recurring habit with a cooldown, set the task's lastVerifiedTimestamp
+          if (parentHabit.habitType == HabitType.habit &&
+              parentHabit.cooldownDurationInMinutes != null &&
+              parentHabit.cooldownDurationInMinutes! > 0) {
+            task.lastVerifiedTimestamp =
+                DateTime.now(); // Set on the task itself
+          }
 
           // Update Habit State
-          if (habitStateChanged) {
-            await habitProvider.updateHabit(parentHabit);
-          } else {
-            await habitProvider.updateHabit(parentHabit);
-          }
+          // Always call updateHabit to save task changes and potentially lastVerifiedTimestamp, lastUpdated etc.
+          await habitProvider.updateHabit(parentHabit);
 
           // Show Success Message
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1756,6 +1896,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                             habitData['weeklyTarget'];
                                         final List<dynamic> tasksData =
                                             habitData['tasks'] ?? [];
+                                        final int? cooldownDurationInMinutes =
+                                            habitData[
+                                                    'cooldownDurationInMinutes']
+                                                as int?;
 
                                         final HabitType habitType =
                                             HabitType.values.firstWhere(
@@ -1828,6 +1972,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           recurrence: recurrence,
                                           endDate: endDate,
                                           weeklyTarget: weeklyTarget,
+                                          cooldownDurationInMinutes:
+                                              cooldownDurationInMinutes,
+                                          // lastVerifiedTimestamp will be set when a habit is completed/verified
                                         );
 
                                         await habitProvider.addHabit(newHabit);
@@ -2008,19 +2155,33 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppTheme.darkBackground,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text(
-          'Questy Home',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            shadows: [
-              Shadow(
-                color: Colors.black,
-                offset: Offset(1, 1),
-                blurRadius: 2,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Image.asset(
+                'assets/images/appLogo.jpg',
+                height: 32,
+                width: 32,
               ),
-            ],
-          ),
+            ),
+            const Text(
+              'Questy Home',
+              style: TextStyle(
+                fontFamily: 'ArcadeClassic',
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    color: Colors.black,
+                    offset: Offset(1, 1),
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -2108,4 +2269,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-

@@ -28,13 +28,14 @@ class HabitAdapter extends TypeAdapter<Habit> {
       weeklyTarget: fields[8] as int?,
       weeklyProgress: fields[9] as int,
       lastUpdated: fields[10] as DateTime?,
+      cooldownDurationInMinutes: fields[11] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Habit obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -56,7 +57,9 @@ class HabitAdapter extends TypeAdapter<Habit> {
       ..writeByte(9)
       ..write(obj.weeklyProgress)
       ..writeByte(10)
-      ..write(obj.lastUpdated);
+      ..write(obj.lastUpdated)
+      ..writeByte(11)
+      ..write(obj.cooldownDurationInMinutes);
   }
 
   @override

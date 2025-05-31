@@ -37,13 +37,15 @@ class HabitTask extends HiveObject { // Extend HiveObject
   @HiveField(4)
   bool isCompleted;
   @HiveField(5)
-  DateTime? lastCompletedDate;
+  DateTime? lastCompletedDate; // Field 5: Last completion date
   @HiveField(6)
   int? pointsAwarded;
   @HiveField(7)
   int? expAwarded;
   @HiveField(8)
   Map<String, double>? attributesAwarded; // Map of attribute name to amount
+  @HiveField(9)
+  DateTime? lastVerifiedTimestamp; // For per-task cooldown tracking
 
   HabitTask({
     required this.id,
@@ -55,6 +57,7 @@ class HabitTask extends HiveObject { // Extend HiveObject
     this.pointsAwarded,
     this.expAwarded,
     this.attributesAwarded,
+    this.lastVerifiedTimestamp,
   });
   
   // Helper method to get attribute changes as a list

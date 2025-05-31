@@ -5,6 +5,7 @@ import '../providers/character_provider.dart';
 import '../models/character.dart';
 import '../models/background.dart';
 import '../widgets/character_display.dart'; // Import the display widget
+import '../theme/app_theme.dart';
 
 class CharacterCustomizationScreen extends StatefulWidget {
   const CharacterCustomizationScreen({super.key});
@@ -39,7 +40,20 @@ class _CharacterCustomizationScreenState extends State<CharacterCustomizationScr
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Customize Character'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Image.asset(
+                'assets/images/appLogo.jpg',
+                height: 32,
+                width: 32,
+              ),
+            ),
+            const Text('Customize Character'),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
