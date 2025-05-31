@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle; // Import for rootBundle
 import 'package:googleapis_auth/auth_io.dart' as auth;
-import '../config/api_config.dart';
+import '../utils/api_config_bridge.dart';
 // Removed: import '../models/enums/habit_type.dart';
 // Removed: import '../models/enums/recurrence.dart';
 // These enums are used by the app's internal models, not directly by the AI service prompts in this version.
@@ -31,19 +31,36 @@ class AIService {
   Future<void> _initialize() async {
     if (_authClient != null) return;
 
-    try {
-      // Load the service account key from Flutter's asset bundle
-      final String content = await rootBundle.loadString(ApiConfig.vertexServiceAccountKeyPath);
-      final credentials = auth.ServiceAccountCredentials.fromJson(jsonDecode(content));
-      final scopes = ['https://www.googleapis.com/auth/cloud-platform'];
-      _authClient = await auth.clientViaServiceAccount(credentials, scopes);
-      print("Vertex AI Service Account authenticated successfully from assets.");
-    } catch (e, stacktrace) {
-      print("Error initializing Vertex AI auth from assets: $e");
-      print("Stacktrace: $stacktrace");
-      print("Please ensure '${ApiConfig.vertexServiceAccountKeyPath}' is correctly listed in pubspec.yaml's assets section and the file exists.");
-      rethrow;
+    // List of possible paths to try for the service account key
+    final possiblePaths = [
+      ApiConfig.vertexServiceAccountKeyPath,
+      'assets/vertex_ai_credentials.json'
+    ];
+    
+    String? errorMessages;
+    
+    // Try each path until we find one that works
+    for (final path in possiblePaths) {
+      try {
+        // Load the service account key from Flutter's asset bundle
+        final String content = await rootBundle.loadString(path);
+        final credentials = auth.ServiceAccountCredentials.fromJson(jsonDecode(content));
+        final scopes = ['https://www.googleapis.com/auth/cloud-platform'];
+        _authClient = await auth.clientViaServiceAccount(credentials, scopes);
+        print("Vertex AI Service Account authenticated successfully from: $path");
+        return; // Successfully initialized, exit the method
+      } catch (e, stacktrace) {
+        final errorMessage = "Error loading credentials from $path: $e\nStacktrace: $stacktrace";
+        print(errorMessage);
+        errorMessages = (errorMessages ?? '') + '\n' + errorMessage;
+        // Continue to the next path
+      }
     }
+    
+    // If we got here, all paths failed
+    final error = "Failed to initialize Vertex AI auth from any location.\n$errorMessages";
+    print(error);
+    throw Exception(error);
   }
 
   Future<Map<String, dynamic>?> breakDownHabit(String habitDescription) async {
@@ -518,7 +535,8 @@ class AIService {
     } catch (e, stacktrace) {
       print('Error in verifyTaskCompletion with Vertex AI: $e');
       print("Stacktrace: $stacktrace");
-      return {'isValid': false, 'reason': 'Exception during AI verification call.'};
+      
+      return {'isValid': false, 'reason': 'Exception during AI verification call.', 'suggestedAttribute': 'Unity'};
     }
   }
-} 
+}

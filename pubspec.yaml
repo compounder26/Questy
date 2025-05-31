@@ -85,6 +85,9 @@ flutter:
     - assets/images/Accesories/
     - assets/images/ui/
     - lib/config/vertex_ai_credentials.json
+    - assets/env_config.json
+    - assets/vertex_ai_credentials.json
+
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
