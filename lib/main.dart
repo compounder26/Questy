@@ -6,7 +6,6 @@ import 'services/ai_service.dart';
 import 'models/user.dart';
 import 'providers/habit_provider.dart';
 import 'providers/character_provider.dart';
-import 'models/character.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -35,10 +34,11 @@ Future<void> main() async {
    if (!Hive.isAdapterRegistered(HabitAdapter().typeId)) {
     Hive.registerAdapter(HabitAdapter());
   }
-
+  // Character adapters will be added once generated
 
   // Open Boxes
   await Hive.openBox<Habit>('habits'); // Open the box for Habits
+  await Hive.openBox('preferences'); // Open the box for preferences
 
   runApp(const MyApp());
 }
@@ -68,15 +68,41 @@ class MyApp extends StatelessWidget {
           },
         ),
         ChangeNotifierProvider<CharacterProvider>(
-          create: (_) => CharacterProvider(),
+          create: (_) {
+            final provider = CharacterProvider();
+            provider.loadPreferences(); // Load character preferences
+            return provider;
+          },
         ),
       ],
       child: MaterialApp(
         title: 'Questy',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.deepPurple,
+            brightness: Brightness.dark,
+          ),
           useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFF121212),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFF1E1E1E),
+          ),
+          navigationBarTheme: NavigationBarThemeData(
+            backgroundColor: const Color(0xFF1E1E1E),
+            indicatorColor: Colors.deepPurple.shade700,
+          ),
         ),
+        darkTheme: ThemeData.dark(useMaterial3: true).copyWith(
+          scaffoldBackgroundColor: const Color(0xFF121212),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFF1E1E1E),
+          ),
+          navigationBarTheme: NavigationBarThemeData(
+            backgroundColor: const Color(0xFF1E1E1E),
+            indicatorColor: Colors.deepPurple.shade700,
+          ),
+        ),
+        themeMode: ThemeMode.dark,
         home: const MainScreen(),
       ),
     );
@@ -106,8 +132,10 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _screens[_selectedIndex],
       bottomNavigationBar: NavigationBar(
+        backgroundColor: Theme.of(context).navigationBarTheme.backgroundColor,
         selectedIndex: _selectedIndex,
         onDestinationSelected: (int index) {
           setState(() {

@@ -45,7 +45,7 @@ class ProfileScreen extends StatelessWidget {
                     child: CharacterDisplay(
                       character: characterProvider.character,
                       animate: false,
-                      backgroundAsset: 'assets/images/backgrounds/forest.png'
+                      background: characterProvider.selectedBackground,
                     ),
                   ),
                   const SizedBox(height: 16),

@@ -14,11 +14,13 @@ import 'package:questy/models/enums/habit_type.dart';
 import 'package:questy/models/enums/recurrence.dart';
 import './history_screen.dart';
 import '../models/habit_task.dart';
-import '../models/enums/habit_type.dart';
-import '../models/enums/recurrence.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:typed_data';
+import '../theme/app_theme.dart';
+import '../widgets/pixel_card.dart';
+import '../widgets/pixel_button.dart';
+import '../widgets/pixel_checkbox.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _habitController = TextEditingController();
   final List<types.Message> _messages = [];
   final _user = const types.User(id: '1', firstName: 'User');
-  final PageController _pageController = PageController(viewportFraction: 0.8);
+  final PageController _pageController = PageController(viewportFraction: 1.0);
   bool _characterIsAnimating = false;  
 
   @override
@@ -51,30 +53,48 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildStatisticsCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Consumer<User>(
-              builder: (context, user, child) {
-                return Column(
-                  children: [
-                    Text(
-                      'Level ${user.level}',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${user.points} Points',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ],
-                );
-              },
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+      child: Container(
+        padding: const EdgeInsets.all(24.0),
+        decoration: AppTheme.woodenFrameDecoration.copyWith(
+          image: const DecorationImage(
+            image: AssetImage(AppTheme.woodBackgroundPath),
+            fit: BoxFit.cover,
+            opacity: 0.8,
+          ),
+          borderRadius: BorderRadius.circular(12.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 8,
+              offset: const Offset(4, 4),
             ),
           ],
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Consumer<User>(
+                builder: (context, user, child) {
+                  return Column(
+                    children: [
+                      Text(
+                        'Level ${user.level}',
+                        style: AppTheme.pixelHeadingStyle,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '${user.points} Points',
+                        style: AppTheme.pixelBodyStyle.copyWith(fontSize: 20),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -83,19 +103,19 @@ class _HomeScreenState extends State<HomeScreen> {
   // Helper function to determine color based on habit properties
   Color _getHabitColor(Habit habit) {
     if (habit.habitType == HabitType.goal) {
-      return Colors.blue[100] ?? Colors.blue; // Color for Goals
+      return AppTheme.blueHighlight.withOpacity(0.2); // Color for Goals
     }
     // It's a habit
     if (habit.endDate != null) {
       // Time-limited habit
-      return Colors.orange[100] ?? Colors.orange; // Color for Time-Limited Habits
+      return AppTheme.redHighlight.withOpacity(0.2); // Color for Time-Limited Habits
     }
     // Permanent habit
     switch (habit.recurrence) {
       case Recurrence.daily:
-        return Colors.green[100] ?? Colors.green; // Color for Daily Habits
+        return AppTheme.greenHighlight.withOpacity(0.2); // Color for Daily Habits
       case Recurrence.weekly:
-        return Colors.purple[100] ?? Colors.purple; // Color for Weekly Habits
+        return Colors.purple.withOpacity(0.2); // Color for Weekly Habits
       case Recurrence.none: // Should ideally not happen for type=habit, but handle anyway
       default:
         return Colors.grey[200] ?? Colors.grey; // Default/fallback color
@@ -103,186 +123,354 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHabitsCard() {
-    return Card(
-      child: Padding(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+      child: Container(
         padding: const EdgeInsets.all(16.0),
-        child: Consumer<HabitProvider>(
-          builder: (context, habitProvider, child) {
-            // Filter for active habits/goals first
-            final activeHabits = habitProvider.habits.where((h) => h.isActive).toList();
+        decoration: AppTheme.woodenFrameDecoration.copyWith(
+          image: const DecorationImage(
+            image: AssetImage(AppTheme.woodBackgroundPath),
+            fit: BoxFit.cover,
+            opacity: 0.8,
+          ),
+          borderRadius: BorderRadius.circular(12.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 8,
+              offset: const Offset(4, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: Center(
+                child: Text(
+                  'TASKS & GOALS',
+                  style: AppTheme.pixelHeadingStyle,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Consumer<HabitProvider>(
+                builder: (context, habitProvider, child) {
+                  // Filter for active habits/goals first
+                  final activeHabits = habitProvider.habits.where((h) => h.isActive).toList();
 
-            // Create a list of items to display (can mix Habits and Tasks later)
-            // For now, let's group by habit
-
-            if (activeHabits.isEmpty) {
-              return const Center(child: Text('No active goals or habits. Tap + to add one!'));
-            }
-
-            // Use ListView.separated for better visual grouping by habit
-            return ListView.separated(
-              itemCount: activeHabits.length,
-              separatorBuilder: (context, index) => const Divider(height: 20, thickness: 1),
-              itemBuilder: (context, index) {
-                final habit = activeHabits[index];
-                final color = _getHabitColor(habit);
-
-                return Container(
-                  color: color, // Apply color coding to the habit section
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row( // Wrap title and menu button in a Row
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded( // Allow title to take available space
-                            child: Text(
-                              habit.concisePromptTitle, // Display the AI-generated title
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                              overflow: TextOverflow.ellipsis, // Prevent overflow
-                            ),
-                          ),
-                          PopupMenuButton<String>(
-                            onSelected: (String result) {
-                              switch (result) {
-                                case 'delete':
-                                  _confirmAndDeleteHabit(context, habit); // Call delete confirmation
-                                  break;
-                                // Add other options here if needed
-                              }
-                            },
-                            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                              const PopupMenuItem<String>(
-                                value: 'delete',
-                                child: Text('Delete'),
-                              ),
-                            ],
-                            icon: const Icon(Icons.more_vert),
-                            tooltip: 'Options',
-                          ),
-                        ],
+                  if (activeHabits.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No active goals or habits.\nTap + to add one!',
+                        style: AppTheme.pixelBodyStyle,
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 4),
-                      // Add details based on type/recurrence
-                      if (habit.habitType == HabitType.habit)
-                        Text(
-                          'Type: ${habit.recurrence.toString().split('.').last.capitalize()} Habit ${habit.endDate == null ? "(Permanent)" : "(Ends ${habit.endDate!.toLocal().toString().split(' ')[0]})"}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        )
-                      else // It's a Goal
-                         Text(
-                           'Type: Goal ${habit.areAllTasksCompleted ? "(Completed)" : "(In Progress)"}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                         ),
+                    );
+                  }
 
-                      // Display weekly progress if applicable
-                      if (habit.recurrence == Recurrence.weekly && habit.weeklyTarget != null)
-                         Padding(
-                           padding: const EdgeInsets.only(top: 4.0),
-                           child: Text(
-                            'Weekly Progress: ${habit.weeklyProgress} / ${habit.weeklyTarget}',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
-                          ),
-                         ),
+                  // Use ListView.separated for better visual grouping by habit
+                  return ListView.separated(
+                    itemCount: activeHabits.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final habit = activeHabits[index];
+                      // final color = _getHabitColor(habit); // Color might be handled differently now
 
-                      const SizedBox(height: 8),
-                      // List the tasks for this habit
-                      if (habit.tasks.isEmpty)
-                        const Text('  - No specific tasks defined.')
-                      else
-                        ...habit.tasks.map((task) {
-                          return ListTile(
-                            dense: true,
-                            leading: Icon(
-                                task.isCompleted
-                                ? Icons.check_box
-                                : Icons.check_box_outline_blank,
-                                color: task.isCompleted ? Colors.green : null,
-                                size: 20,
-                            ),
-                            title: Text(task.description),
-                            subtitle: Text('${task.difficulty} - ${task.estimatedTimeMinutes} min'),
-                            trailing: task.isCompleted
-                              ? null // No action if already completed
-                              : IconButton(
-                                  icon: const Icon(Icons.check_circle_outline, size: 20), // Smaller check icon
-                                  tooltip: 'Mark as complete',
-                                  onPressed: () => _verifyTaskCompletion(task, habit),
+                      // Using a simpler Container for habit items, or a differently styled PixelCard
+                      return Card( // Using Material Card for a modern feel
+                        elevation: 2.0, // Subtle shadow
+                        margin: const EdgeInsets.only(bottom: 12.0),
+                        color: AppTheme.darkSurface.withOpacity(0.7), // Dark card that works with wooden bg
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      habit.concisePromptTitle,
+                                      style: AppTheme.pixelBodyStyle.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  PopupMenuButton<String>(
+                                    onSelected: (String result) {
+                                      switch (result) {
+                                        case 'delete':
+                                          _confirmAndDeleteHabit(context, habit);
+                                          break;
+                                      }
+                                    },
+                                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                                      const PopupMenuItem<String>(
+                                        value: 'delete',
+                                        child: Text('Delete'),
+                                      ),
+                                    ],
+                                    icon: const Icon(Icons.more_vert, color: Colors.white),
+                                    tooltip: 'Options',
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              // Add details based on type/recurrence
+                              if (habit.habitType == HabitType.habit)
+                                Text(
+                                  'Type: ${habit.recurrence.toString().split('.').last.capitalize()} Habit ${habit.endDate == null ? "(Permanent)" : "(Ends ${habit.endDate!.toLocal().toString().split(' ')[0]})"}',
+                                  style: AppTheme.pixelBodyStyle.copyWith(fontSize: 12),
+                                )
+                              else
+                                Text(
+                                  'Type: Goal ${habit.areAllTasksCompleted ? "(Completed)" : "(In Progress)"}',
+                                  style: AppTheme.pixelBodyStyle.copyWith(fontSize: 12),
                                 ),
-                            onTap: task.isCompleted 
-                              ? null // No action if already completed
-                              : () => _verifyTaskCompletion(task, habit),
-                          );
-                        }).toList(),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
+
+                              // Display weekly progress if applicable
+                              if (habit.recurrence == Recurrence.weekly && habit.weeklyTarget != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4.0),
+                                  child: Text(
+                                    'Weekly Progress: ${habit.weeklyProgress} / ${habit.weeklyTarget}',
+                                    style: AppTheme.pixelBodyStyle.copyWith(
+                                      fontStyle: FontStyle.italic,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+
+                              const SizedBox(height: 12),
+                              // List the tasks for this habit
+                              if (habit.tasks.isEmpty)
+                                const Text(
+                                  '  - No specific tasks defined.',
+                                  style: AppTheme.pixelBodyStyle,
+                                )
+                              else
+                                ...habit.tasks.map((task) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 8.0),
+                                    child: InkWell(
+                                      onTap: task.isCompleted ? null : () => _verifyTaskCompletion(task, habit),
+                                      borderRadius: BorderRadius.circular(8.0),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          PixelCheckbox(
+                                            value: task.isCompleted,
+                                            onChanged: task.isCompleted
+                                                ? null
+                                                : (_) => _verifyTaskCompletion(task, habit),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  task.description,
+                                                  style: AppTheme.pixelBodyStyle.copyWith(
+                                                    decoration: task.isCompleted
+                                                        ? TextDecoration.lineThrough
+                                                        : null,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  '${task.difficulty} - ${task.estimatedTimeMinutes} min',
+                                                  style: AppTheme.pixelBodyStyle.copyWith(
+                                                    fontSize: 12,
+                                                    color: Colors.white70,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildRewardsCard() {
-    return Card(
-      child: Padding(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+      child: Container(
         padding: const EdgeInsets.all(16.0),
-        child: Consumer<User>(
-          builder: (context, user, child) {
-            final available = Reward.availableRewards;
-            final owned = user.ownedRewards;
-            final ownedIds = user.ownedRewardIds;
+        decoration: AppTheme.woodenFrameDecoration.copyWith(
+          image: const DecorationImage(
+            image: AssetImage(AppTheme.woodBackgroundPath),
+            fit: BoxFit.cover,
+            opacity: 0.8,
+          ),
+          borderRadius: BorderRadius.circular(12.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 8,
+              offset: const Offset(4, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Text(
+                'REWARD SHOP',
+                style: AppTheme.pixelHeadingStyle,
+              ),
+            ),
+            Consumer<User>(
+              builder: (context, user, child) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 0.0),
+                  child: Center(
+                    child: Text(
+                      'Your Points: ${user.points}',
+                      style: AppTheme.pixelBodyStyle.copyWith(fontSize: 18),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 2),
+            Expanded(
+              child: Consumer<User>(
+                builder: (context, user, child) {
+                  final available = Reward.availableRewards;
+                  final ownedIds = user.ownedRewardIds;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Reward Shop',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Text('Your Points: ${user.points}'),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: ListView.builder(
+                  if (available.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No rewards available in the shop yet!',
+                        style: AppTheme.pixelBodyStyle,
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
                     itemCount: available.length,
                     itemBuilder: (context, index) {
                       final reward = available[index];
                       final bool isOwned = ownedIds.contains(reward.id);
                       final bool canAfford = user.points >= reward.cost;
 
-                      return ListTile(
-                        title: Text(reward.name),
-                        subtitle: Text('${reward.description}\nCost: ${reward.cost} points'),
-                        isThreeLine: true,
-                        trailing: isOwned
-                            ? const Icon(Icons.check, color: Colors.green)
-                            : ElevatedButton(
-                                onPressed: canAfford
-                                    ? () {
-                                        bool success = user.purchaseReward(reward);
-                                        if (success) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('${reward.name} purchased!')),
-                                          );
-                                        } else {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Purchase failed.')),
-                                          );
-                                        }
-                                      }
-                                    : null,
-                                child: const Text('Buy'),
+                      return Card(
+                        elevation: 2.0,
+                        margin: const EdgeInsets.only(bottom: 12.0),
+                        color: AppTheme.darkSurface.withOpacity(0.7), // Dark card that works with wooden bg
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      reward.name,
+                                      style: AppTheme.pixelBodyStyle.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      reward.description,
+                                      style: AppTheme.pixelBodyStyle.copyWith(fontSize: 14, color: Colors.white.withOpacity(0.8)),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    if (isOwned)
+                                      Text(
+                                        'OWNED',
+                                        style: AppTheme.pixelBodyStyle.copyWith(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.greenHighlight,
+                                        ),
+                                      )
+                                    else
+                                      Text(
+                                        'Cost: ${reward.cost} points',
+                                        style: AppTheme.pixelBodyStyle.copyWith(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: canAfford ? Colors.yellowAccent : Colors.white.withOpacity(0.6),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
+                              const SizedBox(width: 12),
+                              SizedBox(
+                                width: 60,
+                                height: 60,
+                                child: PixelButton(
+                                  onPressed: isOwned ? null : (canAfford ? () {
+                                    bool success = user.purchaseReward(reward);
+                                    if (success) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          backgroundColor: AppTheme.greenHighlight,
+                                          content: Text('${reward.name} purchased!', style: AppTheme.pixelBodyStyle)
+                                        ),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          backgroundColor: AppTheme.redHighlight,
+                                          content: Text('Purchase failed. Not enough points or already owned.', style: AppTheme.pixelBodyStyle)
+                                        ),
+                                      );
+                                    }
+                                  } : null),
+                                  backgroundColor: isOwned ? Colors.grey.withOpacity(0.3) : (canAfford ? AppTheme.darkWood : Colors.grey.withOpacity(0.5)),
+                                  padding: EdgeInsets.zero,
+                                  child: isOwned 
+                                      ? Center(child: Icon(Icons.check_circle, color: AppTheme.greenHighlight, size: 30)) 
+                                      : (canAfford 
+                                          ? Image.asset('assets/images/Items/diamond.png', fit: BoxFit.contain)
+                                          : Center(child: Icon(Icons.lock_outline, color: Colors.white70, size: 30))
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       );
                     },
-                  ),
-                ),
-              ],
-            );
-          },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -294,129 +482,277 @@ class _HomeScreenState extends State<HomeScreen> {
     final habitProvider = context.read<HabitProvider>();
     final aiService = context.read<AIService>();
     String completionDesc = '';
-    XFile? imageXFile; // Store the selected image file (XFile from image_picker)
+    XFile? imageXFile;
 
-    // Change showDialog result type
     final result = await showDialog<Map<String, dynamic>?>(
       context: context,
-      barrierDismissible: false, // Prevent closing by tapping outside
+      barrierDismissible: false,
       builder: (context) {
-        // Use StatefulBuilder to manage image selection state within the dialog
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Verify Task Completion'),
-              content: SingleChildScrollView( // Ensure content is scrollable if it overflows
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start, // Align text left
-                  children: [
-                    Text('Task: ${task.description}'),
-                    const SizedBox(height: 15),
-                    const Text('Describe your completion (optional if uploading image):'),
-                    TextField(
-                      onChanged: (value) => completionDesc = value,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter description...',
-                        border: OutlineInputBorder(), // Add border for clarity
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              child: SingleChildScrollView(
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.85,
+                    minWidth: MediaQuery.of(context).size.width * 0.6,
+                  ),
+                  decoration: BoxDecoration(
+                    image: const DecorationImage(
+                      image: AssetImage(AppTheme.woodBackgroundPath),
+                      fit: BoxFit.cover,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppTheme.darkWood,
+                      width: 3,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
                       ),
-                    ),
-                    const SizedBox(height: 15),
-                    const Text('Or provide image proof:'),
-                    const SizedBox(height: 5),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.image_search),
-                      label: const Text('Select Image'),
-                      onPressed: () async {
-                        final ImagePicker picker = ImagePicker();
-                        // Offer choice between camera and gallery
-                        final source = await showDialog<ImageSource>(
-                           context: context,
-                           builder: (context) => AlertDialog(
-                                title: const Text("Select Image Source"),
-                                actions: [
-                                    TextButton(
-                                      child: const Text("Camera"),
-                                      onPressed: () => Navigator.pop(context, ImageSource.camera),
-                                    ),
-                                    TextButton(
-                                      child: const Text("Gallery"),
-                                      onPressed: () => Navigator.pop(context, ImageSource.gallery),
-                                    ),
-                                ],
-                           ),
-                        );
-
-                        if (source != null) {
-                             final XFile? pickedFile = await picker.pickImage(source: source);
-                             if (pickedFile != null) {
-                               setDialogState(() { // Use setDialogState to update the dialog UI
-                                 imageXFile = pickedFile;
-                               });
-                             }
-                        }
-                      },
-                    ),
-                    if (imageXFile != null) // Display selected image filename
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Verify Task Completion',
+                        style: AppTheme.pixelHeadingStyle,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2A2A),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppTheme.darkWood,
+                            width: 2,
+                          ),
+                        ),
                         child: Text(
-                            'Selected: ${imageXFile!.name}',
-                            style: Theme.of(context).textTheme.bodySmall
+                          'Task: ${task.description}',
+                          style: AppTheme.pixelBodyStyle,
                         ),
                       ),
-                  ],
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Describe your completion:',
+                        style: AppTheme.pixelBodyStyle,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2A2A2A),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppTheme.darkWood,
+                            width: 1,
+                          ),
+                        ),
+                        child: TextField(
+                          onChanged: (value) => completionDesc = value,
+                          maxLines: 3,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Enter description...',
+                            hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                            contentPadding: const EdgeInsets.all(12),
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Or provide image proof:',
+                        style: AppTheme.pixelBodyStyle,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: PixelButton(
+                          onPressed: () async {
+                            final ImagePicker picker = ImagePicker();
+                            final source = await showDialog<ImageSource>(
+                              context: context,
+                              builder: (context) => Dialog(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                                backgroundColor: Colors.transparent,
+                                child: SingleChildScrollView(
+                                  child: Container(
+                                    width: MediaQuery.of(context).size.width * 0.7,
+                                    decoration: BoxDecoration(
+                                      image: const DecorationImage(
+                                        image: AssetImage(AppTheme.woodBackgroundPath),
+                                        fit: BoxFit.cover,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppTheme.darkWood,
+                                        width: 3,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Text(
+                                          'Select Image Source',
+                                          style: AppTheme.pixelHeadingStyle,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const SizedBox(height: 20),
+                                        Wrap(
+                                          spacing: 10,
+                                          runSpacing: 10,
+                                          alignment: WrapAlignment.center,
+                                          children: [
+                                            PixelButton(
+                                              width: 105,
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                              onPressed: () => Navigator.pop(context, ImageSource.camera),
+                                              child: const Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                                                  SizedBox(width: 4),
+                                                  Text('Camera'),
+                                                ],
+                                              ),
+                                            ),
+                                            PixelButton(
+                                              width: 105,
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                              onPressed: () => Navigator.pop(context, ImageSource.gallery),
+                                              child: const Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.photo_library, color: Colors.white, size: 16),
+                                                  SizedBox(width: 4),
+                                                  Text('Gallery'),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+
+                            if (source != null) {
+                              final XFile? pickedFile = await picker.pickImage(source: source);
+                              if (pickedFile != null) {
+                                setDialogState(() {
+                                  imageXFile = pickedFile;
+                                });
+                              }
+                            }
+                          },
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.image_search, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text('Select Image'),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (imageXFile != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            'Selected: ${imageXFile!.name}',
+                            style: AppTheme.pixelBodyStyle.copyWith(
+                              color: AppTheme.greenHighlight,
+                              fontStyle: FontStyle.italic,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      const SizedBox(height: 20),
+                      Container(
+                        width: double.infinity,
+                        child: Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            PixelButton(
+                              width: 110,
+                              backgroundColor: AppTheme.redHighlight,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              onPressed: () => Navigator.pop(context, {'confirmed': false}),
+                              child: const Text('Cancel'),
+                            ),
+                            PixelButton(
+                              width: 110,
+                              backgroundColor: AppTheme.greenHighlight,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              onPressed: () {
+                                if (completionDesc.isNotEmpty || imageXFile != null) {
+                                  Navigator.pop(context, {
+                                    'confirmed': true,
+                                    'description': completionDesc,
+                                    'image': imageXFile
+                                  });
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Please enter a description or select an image.')),
+                                  );
+                                }
+                              },
+                              child: const Text('Submit'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, {'confirmed': false}), // Return confirmation false
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    // Allow submission if either description or image is provided
-                    if (completionDesc.isNotEmpty || imageXFile != null) {
-                       Navigator.pop(context, {
-                           'confirmed': true,
-                           'description': completionDesc,
-                           'image': imageXFile // Pass the XFile object
-                       });
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                         const SnackBar(content: Text('Please enter a description or select an image.')),
-                      );
-                    }
-                  },
-                  child: const Text('Submit for Verification'),
-                ),
-              ],
             );
-          }
+          },
         );
       },
     );
 
-    // Check the result map
+    // Handle the result - keep the rest of the method unchanged
     if (result != null && result['confirmed'] == true) {
-      // Show loading indicator?
-      // You might want to add a loading indicator here while waiting for AI
-
       final String currentDescription = result['description'] ?? '';
       final XFile? currentImageXFile = result['image'];
       Uint8List? imageData;
 
       try {
-          // Read image data if an image was selected
-          if (currentImageXFile != null) {
-             imageData = await currentImageXFile.readAsBytes();
-          }
+        if (currentImageXFile != null) {
+          imageData = await currentImageXFile.readAsBytes();
+        }
 
-        // Call the updated AI service method
         final verificationResult = await aiService.verifyTaskCompletion(
           taskDescription: task.description,
-          completionDescription: currentDescription.isEmpty ? null : currentDescription, // Pass null if empty
+          completionDescription: currentDescription.isEmpty ? null : currentDescription,
           imageData: imageData,
         );
 
@@ -424,7 +760,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final String? reason = verificationResult['reason'];
 
         if (isValid) {
-          // --- Mark task complete & Award Points (Existing logic) ---
+          // Mark task complete & Award Points
           task.isCompleted = true;
           task.lastCompletedDate = DateTime.now();
 
@@ -437,41 +773,40 @@ class _HomeScreenState extends State<HomeScreen> {
           }
           user.addPoints(pointsAwarded);
 
-          // --- Update Weekly Progress & Habit Last Updated (Existing logic) ---
+          // Update Weekly Progress & Habit Last Updated
           bool habitStateChanged = false;
           if (parentHabit.recurrence == Recurrence.weekly && parentHabit.weeklyTarget != null) {
-              if (!parentHabit.isWeeklyGoalMet) {
-                   parentHabit.weeklyProgress++;
-                   habitStateChanged = true;
-              } else {
-                  print("Weekly goal already met for: ${parentHabit.concisePromptTitle}");
-              }
+            if (!parentHabit.isWeeklyGoalMet) {
+              parentHabit.weeklyProgress++;
+              habitStateChanged = true;
+            } else {
+              print("Weekly goal already met for: ${parentHabit.concisePromptTitle}");
+            }
           }
           parentHabit.lastUpdated = DateTime.now();
           habitStateChanged = true;
 
-          // --- Update Habit State (Existing logic) ---
+          // Update Habit State
           if (habitStateChanged) {
-             await habitProvider.updateHabit(parentHabit);
+            await habitProvider.updateHabit(parentHabit);
           } else {
             await habitProvider.updateHabit(parentHabit);
           }
 
-          // --- Show Success Message (Existing logic) ---
+          // Show Success Message
           scaffoldMessenger.showSnackBar(
             SnackBar(content: Text('Task verified! +$pointsAwarded points.')),
           );
-
         } else {
           // Show rejection reason from AI
           scaffoldMessenger.showSnackBar(
             SnackBar(
-                content: Text('Verification Failed: ${reason ?? "No specific reason provided."}'),
-                duration: const Duration(seconds: 5), // Show longer for reading
-                action: SnackBarAction( // Optional: Allow user to dismiss
-                    label: 'OK',
-                    onPressed: () { scaffoldMessenger.hideCurrentSnackBar(); },
-                ),
+              content: Text('Verification Failed: ${reason ?? "No specific reason provided."}'),
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'OK',
+                onPressed: () { scaffoldMessenger.hideCurrentSnackBar(); },
+              ),
             ),
           );
         }
@@ -496,157 +831,213 @@ class _HomeScreenState extends State<HomeScreen> {
         bool _isLoadingInDialog = false;
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('New Goal or Habit'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_isLoadingInDialog)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 20.0),
-                      child: CircularProgressIndicator(),
-                    )
-                  else
-                    TextField(
-                      controller: _habitController,
-                      decoration: const InputDecoration(
-                        hintText: 'Describe your goal or habit...',
-                      ),
-                      maxLines: 3,
-                    ),
-                ],
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              actions: _isLoadingInDialog
-                  ? []
-                  : [
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _isAddingHabit = false;
-                            _habitController.clear();
-                          });
-                          Navigator.pop(dialogContext);
-                        },
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          final originalDescription = _habitController.text;
-                          if (originalDescription.isNotEmpty) {
-                            setDialogState(() {
-                              _isLoadingInDialog = true;
-                            });
-
-                            final aiService = context.read<AIService>();
-                            final habitProvider = context.read<HabitProvider>();
-                            final scaffoldMessenger = ScaffoldMessenger.of(context);
-                            const uuid = Uuid();
-
-                            try {
-                              final habitData = await aiService.breakDownHabit(originalDescription);
-
-                              if (habitData != null) {
-                                final String conciseTitle = habitData['concisePromptTitle'] ?? originalDescription;
-                                final String habitTypeString = habitData['habitType'] ?? 'goal';
-                                final String recurrenceString = habitData['recurrence'] ?? 'none';
-                                final String? endDateString = habitData['endDate'];
-                                final int? weeklyTarget = habitData['weeklyTarget'];
-                                final List<dynamic> tasksData = habitData['tasks'] ?? [];
-
-                                final HabitType habitType = HabitType.values.firstWhere(
-                                  (e) => e.toString() == 'HabitType.$habitTypeString',
-                                  orElse: () => HabitType.goal
-                                );
-                                final Recurrence recurrence = Recurrence.values.firstWhere(
-                                  (e) => e.toString() == 'Recurrence.$recurrenceString',
-                                  orElse: () => Recurrence.none
-                                );
-                                final DateTime? endDate = endDateString != null ? DateTime.tryParse(endDateString) : null;
-
-                                final List<HabitTask> habitTasks = tasksData.map((taskMap) {
-                                  if (taskMap is Map<String, dynamic>) {
-                                      int estimatedMinutes = 0;
-                                      if (taskMap['estimatedTime'] is int) {
-                                        estimatedMinutes = taskMap['estimatedTime'];
-                                      } else if (taskMap['estimatedTime'] is String) {
-                                        estimatedMinutes = int.tryParse(taskMap['estimatedTime'].toString()) ?? 0;
-                                      }
-
-                                      return HabitTask(
-                                        id: uuid.v4(),
-                                        description: taskMap['task']?.toString() ?? 'Unnamed Task',
-                                        difficulty: taskMap['difficulty']?.toString() ?? 'Medium',
-                                        estimatedTimeMinutes: estimatedMinutes,
-                                      );
-                                  } else {
-                                    print("Skipping invalid task data: $taskMap");
-                                    return null;
-                                  }
-                                }).whereType<HabitTask>().toList();
-
-                                final newHabit = Habit(
-                                  id: uuid.v4(),
-                                  description: originalDescription,
-                                  concisePromptTitle: conciseTitle,
-                                  tasks: habitTasks,
-                                  createdAt: DateTime.now(),
-                                  habitType: habitType,
-                                  recurrence: recurrence,
-                                  endDate: endDate,
-                                  weeklyTarget: weeklyTarget,
-                                );
-
-                                await habitProvider.addHabit(newHabit);
-                                if (dialogContext.mounted) {
-                                   Navigator.pop(dialogContext);
-                                }
-
-                              } else {
-                                if (dialogContext.mounted) {
-                                   Navigator.pop(dialogContext);
-                                }
-                                if (context.mounted) {
-                                     ScaffoldMessenger.of(context).showSnackBar(
-                                       const SnackBar(content: Text('Could not break down goal/habit. AI service might be unavailable. Please try again.')),
-                                     );
-                                }
-                              }
-                            } catch (e, stacktrace) {
-                              print("Error during habit creation: $e");
-                              print("Stacktrace: $stacktrace");
-                              if (dialogContext.mounted) {
-                                 Navigator.pop(dialogContext);
-                              }
-                              if (context.mounted) {
-                                   ScaffoldMessenger.of(context).showSnackBar(
-                                     const SnackBar(content: Text('An error occurred while creating the goal/habit. Please try again.')),
-                                   );
-                               }
-                            } finally {
-                              if (mounted) {
-                                  setDialogState(() {
-                                      _isLoadingInDialog = false;
-                                  });
-                                  setState(() {
-                                      _isAddingHabit = false;
-                                      _habitController.clear();
-                                  });
-                              } else {
-                                _isAddingHabit = false;
-                                _habitController.clear();
-                              }
-                            }
-                          }
-                        },
-                        child: const Text('Add'),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              child: SingleChildScrollView(
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.85,
+                    minWidth: MediaQuery.of(context).size.width * 0.6,
+                  ),
+                  decoration: BoxDecoration(
+                    image: const DecorationImage(
+                      image: AssetImage(AppTheme.woodBackgroundPath),
+                      fit: BoxFit.cover,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppTheme.darkWood,
+                      width: 3,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
                       ),
                     ],
-            );
-          },
-        );
-      },
-    );
-  }
+                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'New Goal or Habit',
+                        style: AppTheme.pixelHeadingStyle,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      if (_isLoadingInDialog)
+                        Column(
+                          children: [
+                            const SizedBox(height: 20),
+                            const CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Creating your goal/habit...',
+                              style: AppTheme.pixelBodyStyle,
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                        )
+                      else
+                        Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2A2A2A),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppTheme.darkWood,
+                              width: 1,
+                            ),
+                          ),
+                          child: TextField(
+                            controller: _habitController,
+                            maxLines: 4,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              hintText: 'Describe your goal or habit...',
+                              hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                              contentPadding: const EdgeInsets.all(12),
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 20),
+                      if (!_isLoadingInDialog)
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            PixelButton(
+                              width: 120,
+                              backgroundColor: AppTheme.redHighlight,
+                              onPressed: () {
+                                setState(() {
+                                  _isAddingHabit = false;
+                                  _habitController.clear();
+                                });
+                                Navigator.pop(dialogContext);
+                              },
+                              child: const Text('Cancel'),
+                            ),
+                            PixelButton(
+                              width: 120,
+                              backgroundColor: AppTheme.greenHighlight,
+                              onPressed: () async {
+                                final originalDescription = _habitController.text;
+                                if (originalDescription.isNotEmpty) {
+                                  setDialogState(() {
+                                    _isLoadingInDialog = true;
+                                  });
+
+                                  final aiService = context.read<AIService>();
+                                  final habitProvider = context.read<HabitProvider>();
+                                  final scaffoldMessenger = ScaffoldMessenger.of(context);
+                                  const uuid = Uuid();
+
+                                  try {
+                                    final habitData = await aiService.breakDownHabit(originalDescription);
+
+                                    if (habitData != null) {
+                                      final String conciseTitle = habitData['concisePromptTitle'] ?? originalDescription;
+                                      final String habitTypeString = habitData['habitType'] ?? 'goal';
+                                      final String recurrenceString = habitData['recurrence'] ?? 'none';
+                                      final String? endDateString = habitData['endDate'];
+                                      final int? weeklyTarget = habitData['weeklyTarget'];
+                                      final List<dynamic> tasksData = habitData['tasks'] ?? [];
+
+                                      final HabitType habitType = HabitType.values.firstWhere(
+                                        (e) => e.toString() == 'HabitType.$habitTypeString',
+                                        orElse: () => HabitType.goal
+                                      );
+                                      final Recurrence recurrence = Recurrence.values.firstWhere(
+                                        (e) => e.toString() == 'Recurrence.$recurrenceString',
+                                        orElse: () => Recurrence.none
+                                      );
+                                      final DateTime? endDate = endDateString != null ? DateTime.tryParse(endDateString) : null;
+
+                                      final List<HabitTask> habitTasks = tasksData.map((taskMap) {
+                                        if (taskMap is Map<String, dynamic>) {
+                                            int estimatedMinutes = 0;
+                                            if (taskMap['estimatedTime'] is int) {
+                                              estimatedMinutes = taskMap['estimatedTime'];
+                                            } else if (taskMap['estimatedTime'] is String) {
+                                              estimatedMinutes = int.tryParse(taskMap['estimatedTime'].toString()) ?? 0;
+                                            }
+
+                                            return HabitTask(
+                                              id: uuid.v4(),
+                                              description: taskMap['task']?.toString() ?? 'Unnamed Task',
+                                              difficulty: taskMap['difficulty']?.toString() ?? 'Medium',
+                                              estimatedTimeMinutes: estimatedMinutes,
+                                            );
+                                        } else {
+                                          print("Skipping invalid task data: $taskMap");
+                                          return null;
+                                        }
+                                      }).whereType<HabitTask>().toList();
+
+                                      final newHabit = Habit(
+                                        id: uuid.v4(),
+                                        description: originalDescription,
+                                        concisePromptTitle: conciseTitle,
+                                        tasks: habitTasks,
+                                        createdAt: DateTime.now(),
+                                        habitType: habitType,
+                                        recurrence: recurrence,
+                                        endDate: endDate,
+                                        weeklyTarget: weeklyTarget,
+                                      );
+
+                                      await habitProvider.addHabit(newHabit);
+                                      if (dialogContext.mounted) {
+                                        Navigator.pop(dialogContext);
+                                      }
+                                    } else {
+                                      if (dialogContext.mounted) {
+                                        Navigator.pop(dialogContext);
+                                      }
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Could not break down goal/habit. AI service might be unavailable. Please try again.')),
+                                        );
+                                      }
+                                    }
+                                  } catch (e, stacktrace) {
+                                    print("Error during habit creation: $e");
+                                    print("Stacktrace: $stacktrace");
+                                    if (dialogContext.mounted) {
+                                      Navigator.pop(dialogContext);
+                                    }
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('An error occurred while creating the goal/habit. Please try again.')),
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted) {
+                                      setDialogState(() {
+                                        _isLoadingInDialog = false;
+                                      });
+                                      setState(() {
+                                        _isAddingHabit = false;
+                                        _habitController.clear();
+                                      });
+                                    } else {
+                                      _isAddingHabit = false;
+                                      _habitController.clear();
+                                    }
+                                                                    }                                }                              },                              child: const Text('Add'),                            ),                          ],                        ),                    ],                  ),                ),              ),            );          },        );      },    );  }
 
   // Confirmation Dialog for Deleting Habit/Goal
   Future<void> _confirmAndDeleteHabit(BuildContext context, Habit habit) async {
@@ -655,26 +1046,79 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text('Delete ${habit.habitType == HabitType.goal ? "Goal" : "Habit"}?'),
-          content: Text('Are you sure you want to delete "${habit.concisePromptTitle}"? This action cannot be undone.'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop(false); // Return false
-              },
-            ),
-            TextButton(
-              child: const Text('Delete'),
-              style: TextButton.styleFrom(
-                 foregroundColor: Theme.of(context).colorScheme.error, // Use error color for delete button
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: SingleChildScrollView(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.85,
+                minWidth: MediaQuery.of(context).size.width * 0.6,
               ),
-              onPressed: () {
-                Navigator.of(dialogContext).pop(true); // Return true
-              },
+              decoration: BoxDecoration(
+                image: const DecorationImage(
+                  image: AssetImage(AppTheme.woodBackgroundPath),
+                  fit: BoxFit.cover,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppTheme.darkWood,
+                  width: 3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.5),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'Delete ${habit.habitType == HabitType.goal ? "Goal" : "Habit"}?',
+                    style: AppTheme.pixelHeadingStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Are you sure you want to delete "${habit.concisePromptTitle}"?\nThis action cannot be undone.',
+                    style: AppTheme.pixelBodyStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      PixelButton(
+                        width: 120,
+                        onPressed: () {
+                          Navigator.of(dialogContext).pop(false);
+                        },
+                        child: const Text('Cancel'),
+                      ),
+                      PixelButton(
+                        width: 120,
+                        backgroundColor: AppTheme.redHighlight,
+                        onPressed: () {
+                          Navigator.of(dialogContext).pop(true);
+                        },
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         );
       },
     );
@@ -703,11 +1147,28 @@ class _HomeScreenState extends State<HomeScreen> {
     final characterProvider = Provider.of<CharacterProvider>(context);
 
     return Scaffold(
+      backgroundColor: AppTheme.darkBackground,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Questy Home'),
+        title: const Text(
+          'Questy Home',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            shadows: [
+              Shadow(
+                color: Colors.black,
+                offset: Offset(1, 1),
+                blurRadius: 2,
+              ),
+            ],
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.history),
+            icon: const Icon(Icons.history, color: Colors.white),
             tooltip: 'View History',
             onPressed: () {
               Navigator.push(
@@ -718,55 +1179,62 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            flex: 1,
-            child: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CharacterCustomizationScreen(),
-                  ),
-                );
-              },
-              child: CharacterDisplay(
-                character: characterProvider.character,
-                animate: _characterIsAnimating,
-                backgroundAsset: 'assets/images/backgrounds/hd_background.jpg',
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              flex: 0, 
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CharacterCustomizationScreen(),
+                    ),
+                  );
+                },
+                child: CharacterDisplay(
+                  character: characterProvider.character,
+                  animate: _characterIsAnimating,
+                  background: characterProvider.selectedBackground,
+                ),
               ),
             ),
-          ),
-          Expanded(
-            flex: 1,
-            child: PageView(
-              controller: _pageController,
-              children: _carouselItems,
+            Expanded(
+              flex: 1,
+              child: PageView(
+                controller: _pageController,
+                children: _carouselItems,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          FloatingActionButton(
+          PixelButton(
+            width: 60,
+            height: 60,
+            padding: EdgeInsets.zero,
             onPressed: _showAddHabitDialog,
-            tooltip: 'Add Goal/Habit',
-            child: const Icon(Icons.add),
+            child: const Icon(Icons.add, size: 30, color: Colors.white),
           ),
-          const SizedBox(height: 10),
-          FloatingActionButton(
+          const SizedBox(height: 12),
+          PixelButton(
+            width: 60,
+            height: 60,
+            padding: EdgeInsets.zero,
             onPressed: () {
               setState(() {
                 _characterIsAnimating = !_characterIsAnimating;
               });
             },
-            tooltip: 'Toggle Character Animation',
             child: Icon(
               _characterIsAnimating ? Icons.pause_circle_filled : Icons.play_circle_filled,
+              size: 30,
+              color: Colors.white,
             ),
-            heroTag: null,
           ),
         ],
       ),

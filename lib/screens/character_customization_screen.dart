@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:flutter_animate/flutter_animate.dart'; // Import flutter_animate
+// Import flutter_animate
 import '../providers/character_provider.dart';
 import '../models/character.dart';
+import '../models/background.dart';
 import '../widgets/character_display.dart'; // Import the display widget
 
 class CharacterCustomizationScreen extends StatefulWidget {
@@ -17,52 +17,20 @@ class CharacterCustomizationScreen extends StatefulWidget {
 class _CharacterCustomizationScreenState extends State<CharacterCustomizationScreen> {
   // Local state to hold temporary changes before saving
   late Character _tempCharacter;
-
-  /* // Temporarily disabled asset lists
-  final List<String> _hairStyles = ['style1', 'style2', 'style3'];
-  final List<String> _eyeStyles = ['default', 'wide', 'narrow'];
-  final List<String> _clothingStyles = ['shirt1', 'shirt2', 'dress1'];
-  */
+  late Background _tempBackground;
+  late int _currentGenderTabIndex;
 
   @override
   void initState() {
     super.initState();
-    // Initialize temporary character with current provider state
-    final initialCharacter = Provider.of<CharacterProvider>(context, listen: false).character;
+    // Initialize temporary character and background with current provider state
+    final characterProvider = Provider.of<CharacterProvider>(context, listen: false);
     _tempCharacter = Character(
-      gender: initialCharacter.gender,
-      // skinColor: initialCharacter.skinColor, // Removed skinColor initialization
-      // hairStyle: initialCharacter.hairStyle, // Disabled
-      // hairColor: initialCharacter.hairColor, // Disabled
-      // eyeStyle: initialCharacter.eyeStyle, // Disabled
-      // eyeColor: initialCharacter.eyeColor, // Disabled
-      // clothingStyle: initialCharacter.clothingStyle, // Disabled
-      // clothingColor: initialCharacter.clothingColor, // Disabled
+      gender: characterProvider.character.gender,
+      variant: characterProvider.character.variant,
     );
-  }
-
-  void _showColorPicker(Function(Color) onColorChanged, Color initialColor) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Pick a color'),
-        content: SingleChildScrollView(
-          child: ColorPicker(
-            pickerColor: initialColor,
-            onColorChanged: onColorChanged,
-            enableAlpha: false,
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            child: const Text('Ok'),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
-      ),
-    );
+    _tempBackground = characterProvider.selectedBackground;
+    _currentGenderTabIndex = _tempCharacter.gender == Gender.male ? 0 : 1;
   }
 
   @override
@@ -76,8 +44,9 @@ class _CharacterCustomizationScreenState extends State<CharacterCustomizationScr
           IconButton(
             icon: const Icon(Icons.check),
             onPressed: () {
-              // Save only the available temporary changes
+              // Save changes
               characterProvider.updateCharacter(_tempCharacter);
+              characterProvider.updateBackground(_tempBackground);
               Navigator.pop(context);
             },
           )
@@ -85,106 +54,116 @@ class _CharacterCustomizationScreenState extends State<CharacterCustomizationScr
       ),
       body: Column(
         children: [
-          // Top half: Preview
+          // Top half: Preview with selected background
           Expanded(
-            flex: 1, // Adjust flex as needed, maybe 1 for equal split or more for preview
+            flex: 1,
             child: Padding(
               padding: const EdgeInsets.all(8.0),
-              // Use the CharacterDisplay widget for preview
               child: CharacterDisplay(
-                 character: _tempCharacter,
-                 backgroundAsset: 'assets/images/backgrounds/farm.png' // Example background
+                character: _tempCharacter,
+                background: _tempBackground,
+                animate: true,
               ),
             ),
           ),
-          // Bottom half: Customization Options
+          // Bottom half: Character selection tabs
           Expanded(
-            flex: 1, // Adjust flex as needed, maybe 1 for equal split
-            child: ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: [
-                // Body Section
-                _buildSectionTitle('Body'),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                  child: SegmentedButton<Gender>(
-                    segments: const <ButtonSegment<Gender>>[
-                      ButtonSegment<Gender>(
-                        value: Gender.male,
+            flex: 2,
+            child: DefaultTabController(
+              length: 2, // Two tabs: Male and Female
+              initialIndex: _currentGenderTabIndex,
+              child: Column(
+                children: [
+                  TabBar(
+                    tabs: const [
+                      Tab(
                         icon: Icon(Icons.male),
-                        label: Text('Male'),
+                        text: 'Male',
                       ),
-                      ButtonSegment<Gender>(
-                        value: Gender.female,
+                      Tab(
                         icon: Icon(Icons.female),
-                        label: Text('Female'),
+                        text: 'Female',
                       ),
                     ],
-                    selected: <Gender>{_tempCharacter.gender},
-                    onSelectionChanged: (Set<Gender> newSelection) {
+                    onTap: (index) {
                       setState(() {
-                        _tempCharacter.gender = newSelection.first;
+                        _currentGenderTabIndex = index;
+                        _tempCharacter = Character(
+                          gender: index == 0 ? Gender.male : Gender.female,
+                          variant: 1, // Reset to first variant when switching gender
+                        );
                       });
                     },
-                    multiSelectionEnabled: false,
-                    emptySelectionAllowed: false,
-                    showSelectedIcon: false,
-                     style: SegmentedButton.styleFrom(),
                   ),
-                ),
-
-                /* // Removed Skin Color ListTile
-                ListTile(
-                  title: const Text('Skin Color'),
-                  trailing: CircleAvatar(backgroundColor: _tempCharacter.skinColor),
-                  onTap: () => _showColorPicker((color) {
-                    setState(() => _tempCharacter.skinColor = color);
-                  }, _tempCharacter.skinColor),
-                ),
-                */
-                const Divider(),
-
-                /* // Temporarily disabled Hair Section
-                _buildSectionTitle('Hair'),
-                _buildStyleSelector('Style', _hairStyles, _tempCharacter.hairStyle,
-                    (style) => setState(() => _tempCharacter.hairStyle = style)),
-                ListTile(
-                  title: const Text('Color'),
-                  trailing: CircleAvatar(backgroundColor: _tempCharacter.hairColor),
-                  onTap: () => _showColorPicker((color) {
-                    setState(() => _tempCharacter.hairColor = color);
-                  }, _tempCharacter.hairColor),
-                ),
-                const Divider(),
-                */
-
-                /* // Temporarily disabled Eyes Section
-                _buildSectionTitle('Eyes'),
-                 _buildStyleSelector('Style', _eyeStyles, _tempCharacter.eyeStyle,
-                    (style) => setState(() => _tempCharacter.eyeStyle = style)),
-                ListTile(
-                  title: const Text('Color'),
-                  trailing: CircleAvatar(backgroundColor: _tempCharacter.eyeColor),
-                  onTap: () => _showColorPicker((color) {
-                    setState(() => _tempCharacter.eyeColor = color);
-                  }, _tempCharacter.eyeColor),
-                ),
-                const Divider(),
-                */
-
-                /* // Temporarily disabled Clothing Section
-                _buildSectionTitle('Clothing'),
-                 _buildStyleSelector('Style', _clothingStyles, _tempCharacter.clothingStyle,
-                    (style) => setState(() => _tempCharacter.clothingStyle = style)),
-                 ListTile(
-                  title: const Text('Color'),
-                  trailing: CircleAvatar(backgroundColor: _tempCharacter.clothingColor),
-                  onTap: () => _showColorPicker((color) {
-                    setState(() => _tempCharacter.clothingColor = color);
-                  }, _tempCharacter.clothingColor),
-                ),
-                */
-              ],
+                  Expanded(
+                    child: TabBarView(
+                      physics: const NeverScrollableScrollPhysics(), // Disable swipe
+                      children: [
+                        // Male Characters Tab
+                        _buildCharacterGrid(Gender.male),
+                        
+                        // Female Characters Tab
+                        _buildCharacterGrid(Gender.female),
+                      ],
+                    ),
+                  ),
+                  
+                  // Background selection section
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Select Background',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 100,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: Background.availableBackgrounds.length,
+                            itemBuilder: (context, index) {
+                              final background = Background.availableBackgrounds[index];
+                              final isSelected = _tempBackground.id == background.id;
+                              
+                              return GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _tempBackground = background;
+                                  });
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  width: 100,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: isSelected ? Colors.blue : Colors.grey,
+                                      width: isSelected ? 3 : 1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(7),
+                                    child: Image.asset(
+                                      background.assetPath,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -192,33 +171,65 @@ class _CharacterCustomizationScreenState extends State<CharacterCustomizationScr
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Text(title, style: Theme.of(context).textTheme.headlineSmall),
-    );
-  }
-
-  /* // Temporarily disabled style selector helper
-  Widget _buildStyleSelector(
-      String label, List<String> options, String currentSelection, ValueChanged<String> onChanged) {
-    return ListTile(
-      title: Text(label),
-      trailing: DropdownButton<String>(
-        value: currentSelection,
-        items: options
-            .map((s) => DropdownMenuItem(
-                  value: s,
-                  child: Text(s),
-                ))
-            .toList(),
-        onChanged: (String? newValue) {
-          if (newValue != null) {
-            onChanged(newValue);
-          }
-        },
+  // Helper to build character selection grid
+  Widget _buildCharacterGrid(Gender gender) {
+    // Get variants for this gender
+    final List<int> variants = Character.getVariantsForGender(gender);
+    
+    return GridView.builder(
+      padding: const EdgeInsets.all(8.0),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.75,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
       ),
+      itemCount: variants.length,
+      itemBuilder: (context, index) {
+        final variant = variants[index];
+        final isSelected = _tempCharacter.gender == gender && _tempCharacter.variant == variant;
+        
+        // Create a temporary character for this grid item
+        final gridCharacter = Character(gender: gender, variant: variant);
+        
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              _tempCharacter = gridCharacter;
+            });
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: isSelected ? Colors.blue : Colors.transparent,
+                width: 3,
+              ),
+              borderRadius: BorderRadius.circular(8),
+              color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.transparent,
+            ),
+            child: Column(
+              children: [
+                Expanded(
+                  child: CharacterDisplay(
+                    character: gridCharacter,
+                    animate: isSelected,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    '${gender.name.toUpperCase()} $variant',
+                    style: TextStyle(
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
-  */
 } 

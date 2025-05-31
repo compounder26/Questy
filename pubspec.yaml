@@ -75,14 +75,14 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    # We will populate this in the next commit, but good to have the section
+    # Main folders
     - assets/images/
-    - assets/images/backgrounds/
-    - assets/images/character/
-    - assets/images/character/body/
-    - assets/images/character/hair/
-    - assets/images/character/eyes/
-    - assets/images/character/clothes/
+    - assets/images/Character/
+    - assets/images/Background/
+    - assets/images/Items/
+    - assets/images/border/
+    - assets/images/Accesories/
+    - assets/images/ui/
     - lib/config/vertex_ai_credentials.json
 
   # An image asset can refer to one or more resolution-specific "variants", see

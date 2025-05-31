@@ -1,8 +1,7 @@
 import 'dart:convert';
-import 'dart:io'; // For File operations - will be replaced by services for asset loading
+// For File operations - will be replaced by services for asset loading
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle; // Import for rootBundle
-import 'package:http/http.dart' as http;
 import 'package:googleapis_auth/auth_io.dart' as auth;
 import '../config/api_config.dart';
 // Removed: import '../models/enums/habit_type.dart';
