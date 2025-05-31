@@ -573,14 +573,25 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 .cooldownDurationInMinutes!));
                                     onCooldown = DateTime.now()
                                         .isBefore(cooldownEndTime);
+                                    
+                                    // If the task was completed but is no longer on cooldown,
+                                    // we need to reset its completion status for permanent habits
+                                    if (!onCooldown && 
+                                        task.isCompleted && 
+                                        habit.endDate == null) { // Check if it's a permanent habit
+                                      // Reset the completion status so it can be verified again
+                                      task.isCompleted = false;
+                                      // Keep the lastVerifiedTimestamp to track cooldown history
+                                    }
                                   }
                                   // CooldownTimerWidget will handle text display and updates
 
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 8.0),
                                     child: InkWell(
-                                      // Disable onTap if task is completed OR habit is on cooldown
-                                      onTap: task.isCompleted || onCooldown
+                                      // Disable onTap only if task is on cooldown
+                                      // For permanent habits, completed tasks can be verified again after cooldown
+                                      onTap: onCooldown
                                           ? null
                                           : () => _verifyTaskCompletion(
                                               task, habit),
@@ -591,9 +602,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                         children: [
                                           PixelCheckbox(
                                             value: task.isCompleted,
-                                            // Disable onChanged if task is completed OR habit is on cooldown
-                                            onChanged: task.isCompleted ||
-                                                    onCooldown
+                                            // Disable onChanged only if task is on cooldown
+                                            // For permanent habits, completed tasks can be verified again after cooldown
+                                            onChanged: onCooldown
                                                 ? null
                                                 : (_) => _verifyTaskCompletion(
                                                     task, habit),
