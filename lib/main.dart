@@ -1,9 +1,45 @@
 import 'package:flutter/material.dart';
-import 'package:questy/features/goal_management/domain/entities/goal_entity.dart';
-import 'package:questy/features/goal_management/domain/entities/step_entity.dart';
-import 'dart:math'; // For generating a random ID
+import 'package:provider/provider.dart';
+import 'screens/home_screen.dart';
+import 'screens/profile_screen.dart';
+import 'services/ai_service.dart';
+import 'models/user.dart';
+import 'providers/habit_provider.dart';
+import 'providers/character_provider.dart';
+import 'models/character.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 
-void main() {
+// Import models and generated adapters
+import 'models/habit.dart';
+import 'models/habit_task.dart';
+import 'models/enums/habit_type.dart';
+import 'models/enums/recurrence.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final appDocumentDir = await getApplicationDocumentsDirectory();
+  await Hive.initFlutter(appDocumentDir.path);
+
+  // Register Adapters
+  if (!Hive.isAdapterRegistered(HabitTypeAdapter().typeId)) {
+    Hive.registerAdapter(HabitTypeAdapter());
+  }
+  if (!Hive.isAdapterRegistered(RecurrenceAdapter().typeId)) {
+    Hive.registerAdapter(RecurrenceAdapter());
+  }
+   if (!Hive.isAdapterRegistered(HabitTaskAdapter().typeId)) {
+    Hive.registerAdapter(HabitTaskAdapter());
+  }
+   if (!Hive.isAdapterRegistered(HabitAdapter().typeId)) {
+    Hive.registerAdapter(HabitAdapter());
+  }
+
+
+  // Open Boxes
+  await Hive.openBox<Habit>('habits'); // Open the box for Habits
+
   runApp(const MyApp());
 }
 
@@ -12,163 +48,83 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Questy',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+    return MultiProvider(
+      providers: [
+        Provider<AIService>(
+          create: (_) => AIService(),
+        ),
+        ChangeNotifierProvider<User>(
+          create: (_) => User(
+            id: '1',
+            name: 'User',
+          ),
+        ),
+        ChangeNotifierProvider<HabitProvider>(
+          // Load habits when HabitProvider is created
+          create: (_) {
+            final provider = HabitProvider();
+            provider.loadHabits(); // Load habits from Hive
+            return provider;
+          },
+        ),
+        ChangeNotifierProvider<CharacterProvider>(
+          create: (_) => CharacterProvider(),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'Questy',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        home: const MainScreen(),
       ),
-      home: const GoalInputScreen(),
     );
   }
 }
 
-class GoalInputScreen extends StatefulWidget {
-  const GoalInputScreen({super.key});
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
 
   @override
-  State<GoalInputScreen> createState() => _GoalInputScreenState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
-class _GoalInputScreenState extends State<GoalInputScreen> {
-  final TextEditingController _goalController = TextEditingController();
-  String? _errorMessage;
-  GoalEntity? _currentGoal;
-  String? _clarificationMessage; // For ambiguous goals
+class _MainScreenState extends State<MainScreen> {
+  int _selectedIndex = 0;
 
-  void _submitGoal() {
-    final goalDescription = _goalController.text.trim();
-    setState(() { // Reset messages on new submission
-      _errorMessage = null;
-      _clarificationMessage = null;
-      _currentGoal = null;
-    });
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    const ProfileScreen(),
+  ];
 
-    if (goalDescription.isEmpty) {
-      setState(() {
-        _errorMessage = 'Deskripsi tujuan tidak boleh kosong';
-      });
-      return;
-    }
-
-    // Mock AI for ambiguous goals
-    if (goalDescription.toLowerCase().contains("something") || 
-        goalDescription.toLowerCase().contains("anything")) {
-      setState(() {
-        _clarificationMessage = 'This goal seems a bit vague. Could you please provide more details?';
-      });
-      return;
-    }
-
-    final String randomId = Random().nextInt(100000).toString();
-    List<StepEntity> steps = [];
-
-    if (goalDescription.toLowerCase().contains("youtube")) {
-      for (int i = 1; i <= 6; i++) {
-        steps.add(StepEntity(
-          title: 'YouTube Step $i',
-          description: 'Detailed action for YouTube step $i of ${goalDescription.substring(0, min(goalDescription.length, 15))}...',
-          exp: 10 + (i * 2),
-          status: 'Pending',
-        ));
-      }
-    } else {
-      steps = [
-        StepEntity(title: 'Step 1', description: 'Complete the first part of ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 10, status: 'Pending'),
-        StepEntity(title: 'Step 2', description: 'Continue with ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 15, status: 'Pending'),
-        StepEntity(title: 'Step 3', description: 'Finalize ${goalDescription.substring(0, min(goalDescription.length, 10))}...', exp: 20, status: 'Pending'),
-      ];
-    }
-
-    final newGoal = GoalEntity(
-      id: randomId,
-      description: goalDescription,
-      steps: steps,
-    );
-    setState(() {
-      _currentGoal = newGoal;
-    });
-    print('Goal Submitted: ${_currentGoal!.description}');
-    print('Steps Generated: ${_currentGoal!.steps.length}');
-    _goalController.clear();
+  @override
+  void initState() {
+    super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Enter Your Goal'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            const SizedBox(height: 20),
-            TextField(
-              controller: _goalController,
-              decoration: InputDecoration(
-                labelText: 'Goal Description',
-                hintText: 'E.g., Learn to play guitar or I want to do something cool',
-                border: const OutlineInputBorder(),
-                errorText: _errorMessage,
-              ),
-              onChanged: (text) {
-                if ((_errorMessage != null && text.isNotEmpty) || (_clarificationMessage != null && text.isNotEmpty)) {
-                  setState(() {
-                    _errorMessage = null;
-                    _clarificationMessage = null; // Clear clarification when user types
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _submitGoal,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                textStyle: const TextStyle(fontSize: 16),
-              ),
-              child: const Text('Submit Goal'),
-            ),
-            const SizedBox(height: 20),
-            if (_clarificationMessage != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Text(
-                  _clarificationMessage!,
-                  style: TextStyle(color: Colors.orange.shade700, fontSize: 16),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            const SizedBox(height: 10),
-            if (_currentGoal != null && _currentGoal!.steps.isNotEmpty)
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _currentGoal!.steps.length,
-                  itemBuilder: (context, index) {
-                    final step = _currentGoal!.steps[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: ListTile(
-                        title: Text(step.title),
-                        subtitle: Text('${step.description}\nEXP: ${step.exp} - Status: ${step.status}'),
-                        isThreeLine: true,
-                      ),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
+      body: _screens[_selectedIndex],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (int index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _goalController.dispose();
-    super.dispose();
   }
 }
