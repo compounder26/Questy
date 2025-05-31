@@ -157,7 +157,7 @@ class User extends ChangeNotifier {
   }
 
   // Method to attempt purchasing a reward
-  bool purchaseReward(Reward reward) {
+  bool purchaseReward(Reward reward, {Function? onTaskEraserPurchased}) {
     print('PURCHASE ATTEMPT: ${reward.name} (ID: ${reward.id})');
     
     // Directly check availability using our persistence system
@@ -220,7 +220,7 @@ class User extends ChangeNotifier {
     ));
     
     // Apply any special effects
-    _applyRewardEffects(reward);
+    _applyRewardEffects(reward, onTaskEraserPurchased: onTaskEraserPurchased);
     
     // Save changes through both systems to ensure consistency
     notifyListeners();
@@ -234,7 +234,7 @@ class User extends ChangeNotifier {
   }
 
   // Helper method to apply reward effects, extracted for clarity
-  void _applyRewardEffects(Reward reward) {
+  void _applyRewardEffects(Reward reward, {Function? onTaskEraserPurchased}) {
     if (reward.type != null && reward.effectData != null) {
       switch (reward.type) {
         case 'attribute_boost':
@@ -245,13 +245,18 @@ class User extends ChangeNotifier {
           }
           break;
         case 'exp_boost':
-          final int? expAmount = reward.effectData!['amount'] as int?;
+          final int? expAmount = reward.effectData!['expAmount'] as int?;
           if (expAmount != null) {
             addExp(expAmount);
           }
           break;
+        case 'task_eraser':
+          // Task Eraser should be used immediately upon purchase
+          if (onTaskEraserPurchased != null) {
+            onTaskEraserPurchased();
+          }
+          break;
         // Add other effect types here if necessary
-        // e.g., case 'task_eraser':
         // case 'reward_multiplier':
         // case 'daily_reset':
         // case 'currency_multiplier':
