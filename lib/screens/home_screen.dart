@@ -8,6 +8,7 @@ import '../services/ai_service.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import '../providers/habit_provider.dart';
 import '../providers/character_provider.dart';
+import '../providers/inventory_provider.dart';
 import '../widgets/character_display.dart';
 import 'package:uuid/uuid.dart';
 import './character_customization_screen.dart';
@@ -16,13 +17,11 @@ import 'package:questy/models/enums/recurrence.dart';
 import './history_screen.dart';
 import '../models/habit_task.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'dart:typed_data';
 import '../theme/app_theme.dart';
-import '../widgets/pixel_card.dart';
 import '../widgets/pixel_button.dart';
 import '../widgets/pixel_checkbox.dart';
-import '../widgets/attribute_stats_display.dart';
+import '../utils/string_extensions.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -38,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<types.Message> _messages = [];
   final _user = const types.User(id: '1', firstName: 'User');
   final PageController _pageController = PageController(viewportFraction: 1.0);
-  bool _characterIsAnimating = false;  
+  bool _characterIsAnimating = false;
 
   @override
   void initState() {
@@ -77,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Consumer<User>(
           builder: (context, user, child) {
             final stats = user.attributeStats;
-            
+
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,7 +87,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     // Level indicator
                     Container(
-                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 10),
                       decoration: BoxDecoration(
                         color: Colors.brown[700],
                         borderRadius: BorderRadius.circular(6),
@@ -118,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
-                    
+
                     // Star count
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -145,7 +145,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           width: 20,
                           height: 20,
                           errorBuilder: (context, error, stackTrace) {
-                            return const Icon(Icons.star, color: Colors.amber, size: 20);
+                            return const Icon(Icons.star,
+                                color: Colors.amber, size: 20);
                           },
                         ),
                       ],
@@ -153,12 +154,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 6),
-                
+
                 // Experience bar
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
+                    const Text(
                       'EXP',
                       style: TextStyle(
                         color: Colors.white,
@@ -175,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     Text(
                       '${user.exp}/${user.getExpNeededForNextLevel()}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -191,7 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 2),
-                
+
                 // EXP Progress bar
                 Stack(
                   children: [
@@ -205,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    
+
                     // Filled portion
                     FractionallySizedBox(
                       widthFactor: user.getLevelProgress().clamp(0.0, 1.0),
@@ -228,24 +229,30 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                
+
                 // Health attribute
-                _buildAttributeRow('H', 'Health', stats.health, stats.healthLevel, Colors.red.shade600),
-                
+                _buildAttributeRow('H', 'Health', stats.health,
+                    stats.healthLevel, Colors.red.shade600),
+
                 // Intelligence attribute
-                _buildAttributeRow('I', 'Intelligence', stats.intelligence, stats.intelligenceLevel, Colors.blue.shade600),
-                
+                _buildAttributeRow('I', 'Intelligence', stats.intelligence,
+                    stats.intelligenceLevel, Colors.blue.shade600),
+
                 // Cleanliness attribute
-                _buildAttributeRow('C', 'Cleanliness', stats.cleanliness, stats.cleanlinessLevel, Colors.yellow.shade600),
-                
+                _buildAttributeRow('C', 'Cleanliness', stats.cleanliness,
+                    stats.cleanlinessLevel, Colors.yellow.shade600),
+
                 // Charisma attribute
-                _buildAttributeRow('C', 'Charisma', stats.charisma, stats.charismaLevel, Colors.cyan.shade600),
-                
+                _buildAttributeRow('C', 'Charisma', stats.charisma,
+                    stats.charismaLevel, Colors.cyan.shade600),
+
                 // Unity attribute
-                _buildAttributeRow('U', 'Unity', stats.unity, stats.unityLevel, Colors.green.shade600),
-                
+                _buildAttributeRow('U', 'Unity', stats.unity, stats.unityLevel,
+                    Colors.green.shade600),
+
                 // Power attribute
-                _buildAttributeRow('P', 'Power', stats.power, stats.powerLevel, Colors.purple.shade600),
+                _buildAttributeRow('P', 'Power', stats.power, stats.powerLevel,
+                    Colors.purple.shade600),
               ],
             );
           },
@@ -253,11 +260,12 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  
-  Widget _buildAttributeRow(String shortName, String fullName, double value, AttributeLevel level, Color color) {
+
+  Widget _buildAttributeRow(String shortName, String fullName, double value,
+      AttributeLevel level, Color color) {
     // Calculate percentage filled (max value for display purposes is 60)
     final double percentage = (value / 60.0).clamp(0.0, 1.0);
-    
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Column(
@@ -286,7 +294,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(width: 6),
-              
+
               // Level text
               Text(
                 level.displayName,
@@ -297,9 +305,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              
+
               const Spacer(),
-              
+
               // Value display
               Text(
                 value.toStringAsFixed(1),
@@ -313,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           const SizedBox(height: 2),
-          
+
           // Progress bar
           Stack(
             children: [
@@ -326,7 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: Border.all(color: Colors.black, width: 1),
                 ),
               ),
-              
+
               // Filled portion
               FractionallySizedBox(
                 widthFactor: percentage,
@@ -344,7 +352,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  
+
   // Get color based on attribute level
   Color _getLevelColor(AttributeLevel level) {
     switch (level) {
@@ -361,7 +369,8 @@ class _HomeScreenState extends State<HomeScreen> {
       case AttributeLevel.sage:
         return Colors.red[400]!;
       default:
-        return Colors.grey[400]!; // Default case to satisfy non-nullable return type
+        return Colors
+            .grey[400]!; // Default case to satisfy non-nullable return type
     }
   }
 
@@ -373,15 +382,18 @@ class _HomeScreenState extends State<HomeScreen> {
     // It's a habit
     if (habit.endDate != null) {
       // Time-limited habit
-      return AppTheme.redHighlight.withOpacity(0.2); // Color for Time-Limited Habits
+      return AppTheme.redHighlight
+          .withOpacity(0.2); // Color for Time-Limited Habits
     }
     // Permanent habit
     switch (habit.recurrence) {
       case Recurrence.daily:
-        return AppTheme.greenHighlight.withOpacity(0.2); // Color for Daily Habits
+        return AppTheme.greenHighlight
+            .withOpacity(0.2); // Color for Daily Habits
       case Recurrence.weekly:
         return Colors.purple.withOpacity(0.2); // Color for Weekly Habits
-      case Recurrence.none: // Should ideally not happen for type=habit, but handle anyway
+      case Recurrence
+            .none: // Should ideally not happen for type=habit, but handle anyway
       default:
         return Colors.grey[200] ?? Colors.grey; // Default/fallback color
     }
@@ -410,8 +422,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12.0),
               child: Center(
                 child: Text(
                   'TASKS & GOALS',
@@ -426,17 +438,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   final activeHabits = habitProvider.habits.where((h) {
                     // Only show active habits
                     if (!h.isActive) return false;
-                    
+
                     // For goals, don't show completed ones
-                    if (h.habitType == HabitType.goal && h.areAllTasksCompleted) {
+                    if (h.habitType == HabitType.goal &&
+                        h.areAllTasksCompleted) {
                       return false;
                     }
-                    
+
                     return true;
                   }).toList();
 
                   if (activeHabits.isEmpty) {
-                    return Center(
+                    return const Center(
                       child: Text(
                         'No active goals or habits.\nTap + to add one!',
                         style: AppTheme.pixelBodyStyle,
@@ -450,24 +463,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Add padding to the ListView for extra space at the bottom
                     padding: const EdgeInsets.only(bottom: 15.0),
                     itemCount: activeHabits.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 12),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final habit = activeHabits[index];
                       // final color = _getHabitColor(habit); // Color might be handled differently now
 
                       // Using a simpler Container for habit items, or a differently styled PixelCard
-                      return Card( // Using Material Card for a modern feel
+                      return Card(
+                        // Using Material Card for a modern feel
                         elevation: 2.0, // Subtle shadow
                         margin: const EdgeInsets.only(bottom: 12.0),
-                        color: AppTheme.darkSurface.withOpacity(0.7), // Dark card that works with wooden bg
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+                        color: AppTheme.darkSurface.withOpacity(
+                            0.7), // Dark card that works with wooden bg
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0)),
                         child: Padding(
                           padding: const EdgeInsets.all(12.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
@@ -483,17 +501,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                     onSelected: (String result) {
                                       switch (result) {
                                         case 'delete':
-                                          _confirmAndDeleteHabit(context, habit);
+                                          _confirmAndDeleteHabit(
+                                              context, habit);
                                           break;
                                       }
                                     },
-                                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                                    itemBuilder: (BuildContext context) =>
+                                        <PopupMenuEntry<String>>[
                                       const PopupMenuItem<String>(
                                         value: 'delete',
                                         child: Text('Delete'),
                                       ),
                                     ],
-                                    icon: const Icon(Icons.more_vert, color: Colors.white),
+                                    icon: const Icon(Icons.more_vert,
+                                        color: Colors.white),
                                     tooltip: 'Options',
                                   ),
                                 ],
@@ -503,16 +524,19 @@ class _HomeScreenState extends State<HomeScreen> {
                               if (habit.habitType == HabitType.habit)
                                 Text(
                                   'Type: ${habit.recurrence.toString().split('.').last.capitalize()} Habit ${habit.endDate == null ? "(Permanent)" : "(Ends ${habit.endDate!.toLocal().toString().split(' ')[0]})"}',
-                                  style: AppTheme.pixelBodyStyle.copyWith(fontSize: 12),
+                                  style: AppTheme.pixelBodyStyle
+                                      .copyWith(fontSize: 12),
                                 )
                               else
                                 Text(
                                   'Type: Goal ${habit.areAllTasksCompleted ? "(Completed)" : "(In Progress)"}',
-                                  style: AppTheme.pixelBodyStyle.copyWith(fontSize: 12),
+                                  style: AppTheme.pixelBodyStyle
+                                      .copyWith(fontSize: 12),
                                 ),
 
                               // Display weekly progress if applicable
-                              if (habit.recurrence == Recurrence.weekly && habit.weeklyTarget != null)
+                              if (habit.recurrence == Recurrence.weekly &&
+                                  habit.weeklyTarget != null)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 4.0),
                                   child: Text(
@@ -536,33 +560,42 @@ class _HomeScreenState extends State<HomeScreen> {
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 8.0),
                                     child: InkWell(
-                                      onTap: task.isCompleted ? null : () => _verifyTaskCompletion(task, habit),
+                                      onTap: task.isCompleted
+                                          ? null
+                                          : () => _verifyTaskCompletion(
+                                              task, habit),
                                       borderRadius: BorderRadius.circular(8.0),
                                       child: Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           PixelCheckbox(
                                             value: task.isCompleted,
                                             onChanged: task.isCompleted
                                                 ? null
-                                                : (_) => _verifyTaskCompletion(task, habit),
+                                                : (_) => _verifyTaskCompletion(
+                                                    task, habit),
                                           ),
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
                                               children: [
                                                 Text(
                                                   task.description,
-                                                  style: AppTheme.pixelBodyStyle.copyWith(
+                                                  style: AppTheme.pixelBodyStyle
+                                                      .copyWith(
                                                     decoration: task.isCompleted
-                                                        ? TextDecoration.lineThrough
+                                                        ? TextDecoration
+                                                            .lineThrough
                                                         : null,
                                                   ),
                                                 ),
                                                 Text(
                                                   '${task.difficulty} - ${task.estimatedTimeMinutes} min',
-                                                  style: AppTheme.pixelBodyStyle.copyWith(
+                                                  style: AppTheme.pixelBodyStyle
+                                                      .copyWith(
                                                     fontSize: 12,
                                                     color: Colors.white70,
                                                   ),
@@ -613,7 +646,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
+            const Center(
               child: Text(
                 'REWARD SHOP',
                 style: AppTheme.pixelHeadingStyle,
@@ -637,10 +670,9 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Consumer<User>(
                 builder: (context, user, child) {
                   final available = Reward.availableRewards;
-                  final ownedIds = user.ownedRewardIds;
-
+                
                   if (available.isEmpty) {
-                    return Center(
+                    return const Center(
                       child: Text(
                         'No rewards available in the shop yet!',
                         style: AppTheme.pixelBodyStyle,
@@ -653,92 +685,139 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemCount: available.length,
                     itemBuilder: (context, index) {
                       final reward = available[index];
-                      final bool isOwned = ownedIds.contains(reward.id);
                       final bool canAfford = user.starCurrency >= reward.cost;
-
-                      return Card(
-                        elevation: 2.0,
-                        margin: const EdgeInsets.only(bottom: 12.0),
-                        color: AppTheme.darkSurface.withOpacity(0.7), // Dark card that works with wooden bg
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      reward.name,
-                                      style: AppTheme.pixelBodyStyle.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      reward.description,
-                                      style: AppTheme.pixelBodyStyle.copyWith(fontSize: 14, color: Colors.white.withOpacity(0.8)),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    if (isOwned)
-                                      Text(
-                                        'OWNED',
-                                        style: AppTheme.pixelBodyStyle.copyWith(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.greenHighlight,
-                                        ),
-                                      )
-                                    else
-                                      Text(
-                                        'Cost: ${reward.cost} stars',
-                                        style: AppTheme.pixelBodyStyle.copyWith(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: canAfford ? Colors.yellowAccent : Colors.white.withOpacity(0.6),
-                                        ),
-                                      ),
-                                  ],
-                                ),
+                      
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: InkWell(
+                          onTap: !canAfford
+                              ? null
+                              : () => _showRewardConfirmation(context, reward, user),
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: Container(
+                            padding: const EdgeInsets.all(12.0),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(8.0),
+                              border: Border.all(
+                                color: Colors.brown[800]!,
+                                width: 2,
                               ),
-                              const SizedBox(width: 12),
-                              SizedBox(
-                                width: 60,
-                                height: 60,
-                                child: PixelButton(
-                                  onPressed: isOwned ? null : (canAfford ? () {
-                                    bool success = user.purchaseReward(reward);
-                                    if (success) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          backgroundColor: AppTheme.greenHighlight,
-                                          content: Text('${reward.name} purchased!', style: AppTheme.pixelBodyStyle)
-                                        ),
-                                      );
-                                    } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          backgroundColor: AppTheme.redHighlight,
-                                          content: Text('Purchase failed. Not enough stars or already owned.', style: AppTheme.pixelBodyStyle)
-                                        ),
-                                      );
-                                    }
-                                  } : null),
-                                  backgroundColor: isOwned ? Colors.grey.withOpacity(0.3) : (canAfford ? AppTheme.darkWood : Colors.grey.withOpacity(0.5)),
-                                  padding: EdgeInsets.zero,
-                                  child: isOwned 
-                                      ? Center(child: Icon(Icons.check_circle, color: AppTheme.greenHighlight, size: 30)) 
-                                      : (canAfford 
-                                          ? Image.asset('assets/images/Items/diamond.png', fit: BoxFit.contain)
-                                          : Center(child: Icon(Icons.lock_outline, color: Colors.white70, size: 30))
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueGrey[800],
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        blurRadius: 2,
+                                        offset: const Offset(1, 1),
                                       ),
+                                    ],
+                                  ),
+                                  child: reward.iconAsset != null
+                                      ? Image.asset(
+                                          reward.iconAsset!,
+                                          errorBuilder: (context, error, stackTrace) => const Icon(
+                                            Icons.diamond,
+                                            color: Colors.blue,
+                                            size: 30,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.diamond,
+                                          color: Colors.blue,
+                                          size: 30,
+                                        ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        reward.name,
+                                        style: AppTheme.pixelBodyStyle.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        reward.description,
+                                        style: AppTheme.pixelBodyStyle.copyWith(
+                                          fontSize: 14,
+                                          color: Colors.white.withOpacity(0.8),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 8,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        children: [
+                                          Text(
+                                              'Cost: ${reward.cost} stars',
+                                              style: AppTheme.pixelBodyStyle.copyWith(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                                color: canAfford
+                                                    ? Colors.yellowAccent
+                                                    : Colors.white.withOpacity(0.6),
+                                              ),
+                                            ),
+                                            // Display item type
+                                            if (reward.isPermanent)
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.purple.withOpacity(0.7),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: const Text(
+                                                  'PERMANENT',
+                                                  style: TextStyle(
+                                                    fontFamily: 'PixelFont',
+                                                    fontSize: 10,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              )
+                                          ],
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 70,
+                                  height: 40,
+                                  child: PixelButton(
+                                    // Always enable button if user can afford the item
+                                    onPressed: canAfford
+                                        ? () => _showRewardConfirmation(context, reward, user)
+                                        : null,
+                                    backgroundColor: canAfford
+                                        ? AppTheme.darkWood
+                                        : Colors.grey.withOpacity(0.5),
+                                    padding: EdgeInsets.zero,
+                                    child: canAfford
+                                        ? Image.asset(
+                                            'assets/images/Items/diamond.png',
+                                            fit: BoxFit.contain)
+                                        : const Center(
+                                            child: Icon(Icons.lock_outline,
+                                                color: Colors.white70,
+                                                size: 30)),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -753,8 +832,215 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showRewardConfirmation(BuildContext context, Reward reward, User user) {
+    final inventoryProvider = Provider.of<InventoryProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.transparent,
+          contentPadding: EdgeInsets.zero,
+          content: Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.85,
+              minWidth: MediaQuery.of(context).size.width * 0.6,
+            ),
+            padding: const EdgeInsets.all(20),
+            decoration: AppTheme.woodenFrameDecoration.copyWith(
+              image: const DecorationImage(
+                image: AssetImage(AppTheme.woodBackgroundPath),
+                fit: BoxFit.cover,
+                opacity: 0.8,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'CONFIRM PURCHASE',
+                    style: TextStyle(
+                      fontFamily: 'PixelFont',
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Do you want to buy ${reward.name} for ${reward.cost} stars?',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontFamily: 'PixelFont',
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 16,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      PixelButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        backgroundColor: Colors.grey.shade700,
+                        child: const Text(
+                          'CANCEL',
+                          style: TextStyle(
+                            fontFamily: 'PixelFont',
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      PixelButton(
+                        onPressed: () {
+                          final success = user.purchaseReward(reward);
+                          Navigator.of(context).pop();
+                          if (success) {
+                            // Add to inventory if it's a permanent item
+                            if (reward.isPermanent) {
+                              inventoryProvider.addItem(reward);
+                            } else {
+                              // Show consumable item effect
+                              _showConsumableItemPopup(context, reward);
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: AppTheme.greenHighlight,
+                                content: Text(
+                                  '${reward.name} purchased!',
+                                  style: AppTheme.pixelBodyStyle,
+                                ),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                backgroundColor: AppTheme.redHighlight,
+                                content: Text(
+                                  'Purchase failed. Not enough stars or already owned.',
+                                  style: AppTheme.pixelBodyStyle,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        backgroundColor: AppTheme.darkWood,
+                        child: const Text(
+                          'BUY',
+                          style: TextStyle(
+                            fontFamily: 'PixelFont',
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showConsumableItemPopup(BuildContext context, Reward reward) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.transparent,
+          contentPadding: EdgeInsets.zero,
+          content: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: AppTheme.woodenFrameDecoration.copyWith(
+              image: const DecorationImage(
+                image: AssetImage(AppTheme.woodBackgroundPath),
+                fit: BoxFit.cover,
+                opacity: 0.8,
+              ),
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'ITEM CONSUMED',
+                  style: TextStyle(
+                    fontFamily: 'PixelFont',
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (reward.iconAsset != null)
+                  Image.asset(
+                    reward.iconAsset!,
+                    width: 80,
+                    height: 80,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.diamond,
+                      color: Colors.blue,
+                      size: 60,
+                    ),
+                  )
+                else
+                  const Icon(
+                    Icons.diamond,
+                    color: Colors.blue,
+                    size: 60,
+                  ),
+                const SizedBox(height: 16),
+                Text(
+                  'You used ${reward.name}!',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'PixelFont',
+                    fontSize: 16,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  reward.description,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'PixelFont',
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                PixelButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  backgroundColor: AppTheme.darkWood,
+                  child: const Text(
+                    'CLOSE',
+                    style: TextStyle(
+                      fontFamily: 'PixelFont',
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _verifyTaskCompletion(HabitTask task, Habit parentHabit) async {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final user = context.read<User>();
     final habitProvider = context.read<HabitProvider>();
     final aiService = context.read<AIService>();
@@ -810,22 +1096,22 @@ class _HomeScreenState extends State<HomeScreen> {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2A),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: AppTheme.darkWood,
-                            width: 2,
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2A2A2A),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppTheme.darkWood,
+                              width: 2,
+                            ),
+                          ),
+                          child: Text(
+                            'Task: ${task.description}',
+                            style: AppTheme.pixelBodyStyle,
                           ),
                         ),
-                        child: Text(
-                          'Task: ${task.description}',
-                          style: AppTheme.pixelBodyStyle,
-                        ),
-                      ),
                       const SizedBox(height: 16),
                       const Text(
                         'Describe your completion:',
@@ -849,7 +1135,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
                             hintText: 'Enter description...',
-                            hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                            hintStyle:
+                                TextStyle(color: Colors.white.withOpacity(0.7)),
                             contentPadding: const EdgeInsets.all(12),
                             border: InputBorder.none,
                           ),
@@ -878,11 +1165,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                 backgroundColor: Colors.transparent,
                                 child: SingleChildScrollView(
                                   child: Container(
-                                    width: MediaQuery.of(context).size.width * 0.7,
+                                    width:
+                                        MediaQuery.of(context).size.width * 0.7,
                                     margin: const EdgeInsets.only(bottom: 40),
                                     decoration: BoxDecoration(
                                       image: const DecorationImage(
-                                        image: AssetImage(AppTheme.woodBackgroundPath),
+                                        image: AssetImage(
+                                            AppTheme.woodBackgroundPath),
                                         fit: BoxFit.cover,
                                       ),
                                       borderRadius: BorderRadius.circular(12),
@@ -891,7 +1180,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                         width: 3,
                                       ),
                                     ),
-                                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 20, horizontal: 16),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -908,12 +1198,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                           children: [
                                             PixelButton(
                                               width: 105,
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                              onPressed: () => Navigator.pop(context, ImageSource.camera),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 8),
+                                              onPressed: () => Navigator.pop(
+                                                  context, ImageSource.camera),
                                               child: const Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                                                  Icon(Icons.camera_alt,
+                                                      color: Colors.white,
+                                                      size: 16),
                                                   SizedBox(width: 4),
                                                   Text('Camera'),
                                                 ],
@@ -921,12 +1217,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                             PixelButton(
                                               width: 105,
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                              onPressed: () => Navigator.pop(context, ImageSource.gallery),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 8),
+                                              onPressed: () => Navigator.pop(
+                                                  context, ImageSource.gallery),
                                               child: const Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  Icon(Icons.photo_library, color: Colors.white, size: 16),
+                                                  Icon(Icons.photo_library,
+                                                      color: Colors.white,
+                                                      size: 16),
                                                   SizedBox(width: 4),
                                                   Text('Gallery'),
                                                 ],
@@ -942,7 +1244,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
 
                             if (source != null) {
-                              final XFile? pickedFile = await picker.pickImage(source: source);
+                              final XFile? pickedFile =
+                                  await picker.pickImage(source: source);
                               if (pickedFile != null) {
                                 setDialogState(() {
                                   imageXFile = pickedFile;
@@ -974,7 +1277,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       const SizedBox(height: 20),
-                      Container(
+                      SizedBox(
                         width: double.infinity,
                         child: Wrap(
                           spacing: 10,
@@ -984,16 +1287,21 @@ class _HomeScreenState extends State<HomeScreen> {
                             PixelButton(
                               width: 110,
                               backgroundColor: AppTheme.redHighlight,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              onPressed: () => Navigator.pop(context, {'confirmed': false}),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 8),
+                              onPressed: () =>
+                                  Navigator.pop(context, {'confirmed': false}),
                               child: const Text('Cancel'),
                             ),
                             PixelButton(
                               width: 110,
                               backgroundColor: AppTheme.greenHighlight,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 8),
                               onPressed: () {
-                                if (completionDesc.isNotEmpty || imageXFile != null) {
+                                if (completionDesc.isNotEmpty ||
+                                    imageXFile != null) {
+                                  // First close the verification dialog with the data
                                   Navigator.pop(context, {
                                     'confirmed': true,
                                     'description': completionDesc,
@@ -1001,7 +1309,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   });
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Please enter a description or select an image.')),
+                                    const SnackBar(
+                                        content: Text(
+                                            'Please enter a description or select an image.')),
                                   );
                                 }
                               },
@@ -1022,6 +1332,54 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Handle the result - keep the rest of the method unchanged
     if (result != null && result['confirmed'] == true) {
+      // Show a loading dialog while verification is in progress
+      // Create a reference to store the loading dialog context for dismissal later
+      BuildContext? loadingDialogContext;
+      
+      // Show a loading dialog while verification is in progress
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          loadingDialogContext = context;
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                image: const DecorationImage(
+                  image: AssetImage(AppTheme.woodBackgroundPath),
+                  fit: BoxFit.cover,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppTheme.darkWood,
+                  width: 3,
+                ),
+              ),
+              child: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Verifying your task completion...',
+                    style: AppTheme.pixelBodyStyle,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+      
       final String currentDescription = result['description'] ?? '';
       final XFile? currentImageXFile = result['image'];
       Uint8List? imageData;
@@ -1033,94 +1391,129 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final verificationResult = await aiService.verifyTaskCompletion(
           taskDescription: task.description,
-          completionDescription: currentDescription.isEmpty ? null : currentDescription,
+          completionDescription:
+              currentDescription.isEmpty ? null : currentDescription,
           imageData: imageData,
         );
 
         final bool isValid = verificationResult['isValid'] ?? false;
         final String? reason = verificationResult['reason'];
-        final String? suggestedAttribute = verificationResult['suggestedAttribute'];
+        final String? suggestedAttribute =
+            verificationResult['suggestedAttribute'];
 
         if (isValid) {
           // Mark task complete & Award Stars and EXP
           task.isCompleted = true;
           task.lastCompletedDate = DateTime.now();
-          
+
           // Award stars and EXP based on difficulty
           int starsAwarded = 0;
           int expAwarded = 0;
-          
+
           switch (task.difficulty.toLowerCase()) {
-            case 'easy': 
-              starsAwarded = 10; 
+            case 'easy':
+              starsAwarded = 10;
               expAwarded = 5;
               break;
-            case 'medium': 
+            case 'medium':
               starsAwarded = 25;
               expAwarded = 10;
               break;
-            case 'hard': 
+            case 'hard':
               starsAwarded = 50;
               expAwarded = 20;
               break;
-            default: 
+            default:
               starsAwarded = 15;
               expAwarded = 8;
           }
-          
-          // Store stars awarded in the task
+
+          // Store stars and exp awarded in the task
           task.pointsAwarded = starsAwarded;
+          task.expAwarded = expAwarded;
+          // Initialize attributesAwarded map if it doesn't exist
+          task.attributesAwarded = {};
           user.addStarCurrency(starsAwarded);
           user.addExp(expAwarded);
-          
+
           // Increase the appropriate attribute based on the AI suggestion or fallback to task analysis
+          double attributeAmount = task.difficulty.toLowerCase() == 'easy'
+              ? 0.5
+              : task.difficulty.toLowerCase() == 'medium'
+                  ? 1.0
+                  : 2.0;
+                  
           if (suggestedAttribute != null) {
             // Use the AI's suggested attribute
-            user.increaseAttribute(suggestedAttribute.toLowerCase(), task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
-                                                                   task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+            user.increaseAttribute(suggestedAttribute.toLowerCase(), attributeAmount);
+            // Store the attribute change in the task
+            task.attributesAwarded![suggestedAttribute.toLowerCase()] = attributeAmount;
           } else {
             // Fallback to analyzing the task content
             if (parentHabit.habitType == HabitType.goal) {
               // Goals typically increase Intelligence
-              user.increaseAttribute('intelligence', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
-                                                   task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+              user.increaseAttribute('intelligence', attributeAmount);
+              // Store the attribute change in the task
+              task.attributesAwarded!['intelligence'] = attributeAmount;
             } else {
               // Regular habits increase based on their tags or name (simplified example)
-              final String habitDescription = parentHabit.description.toLowerCase();
-              if (habitDescription.contains('exercise') || habitDescription.contains('workout') || habitDescription.contains('gym')) {
-                user.increaseAttribute('power', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
-                                                 task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
-              } else if (habitDescription.contains('read') || habitDescription.contains('study') || habitDescription.contains('learn')) {
-                user.increaseAttribute('intelligence', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
-                                                     task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
-              } else if (habitDescription.contains('clean') || habitDescription.contains('tidy') || habitDescription.contains('organize')) {
-                user.increaseAttribute('cleanliness', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
-                                                    task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
-              } else if (habitDescription.contains('meditate') || habitDescription.contains('reflect') || habitDescription.contains('journal')) {
-                user.increaseAttribute('unity', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
-                                              task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
-              } else if (habitDescription.contains('socialize') || habitDescription.contains('talk') || habitDescription.contains('friend')) {
-                user.increaseAttribute('charisma', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
-                                                task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
-              } else if (habitDescription.contains('health') || habitDescription.contains('sleep') || habitDescription.contains('eat')) {
-                user.increaseAttribute('health', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
-                                              task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+              final String habitDescription =
+                  parentHabit.description.toLowerCase();
+              if (habitDescription.contains('exercise') ||
+                  habitDescription.contains('workout') ||
+                  habitDescription.contains('gym')) {
+                user.increaseAttribute('power', attributeAmount);
+                // Store the attribute change in the task
+                task.attributesAwarded!['power'] = attributeAmount;
+              } else if (habitDescription.contains('read') ||
+                  habitDescription.contains('study') ||
+                  habitDescription.contains('learn')) {
+                user.increaseAttribute('intelligence', attributeAmount);
+                // Store the attribute change in the task
+                task.attributesAwarded!['intelligence'] = attributeAmount;
+              } else if (habitDescription.contains('clean') ||
+                  habitDescription.contains('tidy') ||
+                  habitDescription.contains('organize')) {
+                user.increaseAttribute('cleanliness', attributeAmount);
+                // Store the attribute change in the task
+                task.attributesAwarded!['cleanliness'] = attributeAmount;
+              } else if (habitDescription.contains('meditate') ||
+                  habitDescription.contains('reflect') ||
+                  habitDescription.contains('journal')) {
+                user.increaseAttribute('unity', attributeAmount);
+                // Store the attribute change in the task
+                task.attributesAwarded!['unity'] = attributeAmount;
+              } else if (habitDescription.contains('socialize') ||
+                  habitDescription.contains('talk') ||
+                  habitDescription.contains('friend')) {
+                user.increaseAttribute('charisma', attributeAmount);
+                // Store the attribute change in the task
+                task.attributesAwarded!['charisma'] = attributeAmount;
+              } else if (habitDescription.contains('health') ||
+                  habitDescription.contains('sleep') ||
+                  habitDescription.contains('eat')) {
+                user.increaseAttribute('health', attributeAmount);
+                // Store the attribute change in the task
+                task.attributesAwarded!['health'] = attributeAmount;
               } else {
                 // Default to increasing unity if no specific match
-                user.increaseAttribute('unity', task.difficulty.toLowerCase() == 'easy' ? 0.5 : 
-                                              task.difficulty.toLowerCase() == 'medium' ? 1.0 : 2.0);
+                user.increaseAttribute('unity', attributeAmount);
+                // Store the attribute change in the task
+                task.attributesAwarded!['unity'] = attributeAmount;
               }
             }
           }
 
           // Update Weekly Progress & Habit Last Updated
           bool habitStateChanged = false;
-          if (parentHabit.recurrence == Recurrence.weekly && parentHabit.weeklyTarget != null) {
+          if (parentHabit.recurrence == Recurrence.weekly &&
+              parentHabit.weeklyTarget != null) {
             if (!parentHabit.isWeeklyGoalMet) {
               parentHabit.weeklyProgress++;
               habitStateChanged = true;
             } else {
-              print("Weekly goal already met for: ${parentHabit.concisePromptTitle}");
+              print(
+                  "Weekly goal already met for: ${parentHabit.concisePromptTitle}");
             }
           }
           parentHabit.lastUpdated = DateTime.now();
@@ -1134,27 +1527,38 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           // Show Success Message
-          scaffoldMessenger.showSnackBar(
-            SnackBar(content: Text('Task verified! +$starsAwarded stars and +$expAwarded EXP.')),
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Task verified! +$starsAwarded stars and +$expAwarded EXP.')),
           );
         } else {
           // Show rejection reason from AI
-          scaffoldMessenger.showSnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Verification Failed: ${reason ?? "No specific reason provided."}'),
+              content: Text(
+                  'Verification Failed: ${reason ?? "No specific reason provided."}'),
               duration: const Duration(seconds: 5),
               action: SnackBarAction(
                 label: 'OK',
-                onPressed: () { scaffoldMessenger.hideCurrentSnackBar(); },
+                onPressed: () {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                },
               ),
             ),
           );
         }
       } catch (e) {
         print("Error verifying task: $e");
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(content: Text('Error verifying task. Please try again.')),
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Error verifying task. Please try again.')),
         );
+      } finally {
+        // Always ensure the loading dialog is closed
+        if (loadingDialogContext != null) {
+          Navigator.of(loadingDialogContext!).pop();
+        }
       }
     }
   }
@@ -1169,7 +1573,7 @@ class _HomeScreenState extends State<HomeScreen> {
       barrierDismissible: false,
       useSafeArea: true,
       builder: (dialogContext) {
-        bool _isLoadingInDialog = false;
+        bool isLoadingInDialog = false;
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return Dialog(
@@ -1208,26 +1612,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
+                      const Text(
                         'New Goal or Habit',
                         style: AppTheme.pixelHeadingStyle,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 20),
-                      if (_isLoadingInDialog)
-                        Column(
+                      if (isLoadingInDialog)
+                        const Column(
                           children: [
-                            const SizedBox(height: 20),
-                            const CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            SizedBox(height: 20),
+                            CircularProgressIndicator(
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
-                            const SizedBox(height: 12),
+                            SizedBox(height: 12),
                             Text(
                               'Creating your goal/habit...',
                               style: AppTheme.pixelBodyStyle,
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 20),
+                            SizedBox(height: 20),
                           ],
                         )
                       else
@@ -1247,15 +1652,16 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
                               hintText: 'Describe your goal or habit...',
-                              hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                              hintStyle: TextStyle(
+                                  color: Colors.white.withOpacity(0.7)),
                               contentPadding: const EdgeInsets.all(12),
                               border: InputBorder.none,
                             ),
                           ),
                         ),
                       const SizedBox(height: 20),
-                      if (!_isLoadingInDialog)
-                        Container(
+                      if (!isLoadingInDialog)
+                        SizedBox(
                           width: double.infinity,
                           child: Wrap(
                             spacing: 10,
@@ -1278,58 +1684,99 @@ class _HomeScreenState extends State<HomeScreen> {
                                 width: 120,
                                 backgroundColor: AppTheme.greenHighlight,
                                 onPressed: () async {
-                                  final originalDescription = _habitController.text;
+                                  final originalDescription =
+                                      _habitController.text;
                                   if (originalDescription.isNotEmpty) {
                                     setDialogState(() {
-                                      _isLoadingInDialog = true;
+                                      isLoadingInDialog = true;
                                     });
 
                                     final aiService = context.read<AIService>();
-                                    final habitProvider = context.read<HabitProvider>();
-                                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+                                    final habitProvider =
+                                        context.read<HabitProvider>();
+                                    final scaffoldMessenger =
+                                        ScaffoldMessenger.of(context);
                                     const uuid = Uuid();
 
                                     try {
-                                      final habitData = await aiService.breakDownHabit(originalDescription);
+                                      final habitData = await aiService
+                                          .breakDownHabit(originalDescription);
 
                                       if (habitData != null) {
-                                        final String conciseTitle = habitData['concisePromptTitle'] ?? originalDescription;
-                                        final String habitTypeString = habitData['habitType'] ?? 'goal';
-                                        final String recurrenceString = habitData['recurrence'] ?? 'none';
-                                        final String? endDateString = habitData['endDate'];
-                                        final int? weeklyTarget = habitData['weeklyTarget'];
-                                        final List<dynamic> tasksData = habitData['tasks'] ?? [];
+                                        final String conciseTitle =
+                                            habitData['concisePromptTitle'] ??
+                                                originalDescription;
+                                        final String habitTypeString =
+                                            habitData['habitType'] ?? 'goal';
+                                        final String recurrenceString =
+                                            habitData['recurrence'] ?? 'none';
+                                        final String? endDateString =
+                                            habitData['endDate'];
+                                        final int? weeklyTarget =
+                                            habitData['weeklyTarget'];
+                                        final List<dynamic> tasksData =
+                                            habitData['tasks'] ?? [];
 
-                                        final HabitType habitType = HabitType.values.firstWhere(
-                                          (e) => e.toString() == 'HabitType.$habitTypeString',
-                                          orElse: () => HabitType.goal
-                                        );
-                                        final Recurrence recurrence = Recurrence.values.firstWhere(
-                                          (e) => e.toString() == 'Recurrence.$recurrenceString',
-                                          orElse: () => Recurrence.none
-                                        );
-                                        final DateTime? endDate = endDateString != null ? DateTime.tryParse(endDateString) : null;
+                                        final HabitType habitType =
+                                            HabitType.values.firstWhere(
+                                                (e) =>
+                                                    e.toString() ==
+                                                    'HabitType.$habitTypeString',
+                                                orElse: () => HabitType.goal);
+                                        final Recurrence recurrence =
+                                            Recurrence.values.firstWhere(
+                                                (e) =>
+                                                    e.toString() ==
+                                                    'Recurrence.$recurrenceString',
+                                                orElse: () => Recurrence.none);
+                                        final DateTime? endDate =
+                                            endDateString != null
+                                                ? DateTime.tryParse(
+                                                    endDateString)
+                                                : null;
 
-                                        final List<HabitTask> habitTasks = tasksData.map((taskMap) {
-                                          if (taskMap is Map<String, dynamic>) {
-                                              int estimatedMinutes = 0;
-                                              if (taskMap['estimatedTime'] is int) {
-                                                estimatedMinutes = taskMap['estimatedTime'];
-                                              } else if (taskMap['estimatedTime'] is String) {
-                                                estimatedMinutes = int.tryParse(taskMap['estimatedTime'].toString()) ?? 0;
-                                              }
+                                        final List<HabitTask> habitTasks =
+                                            tasksData
+                                                .map((taskMap) {
+                                                  if (taskMap
+                                                      is Map<String, dynamic>) {
+                                                    int estimatedMinutes = 0;
+                                                    if (taskMap['estimatedTime']
+                                                        is int) {
+                                                      estimatedMinutes =
+                                                          taskMap[
+                                                              'estimatedTime'];
+                                                    } else if (taskMap[
+                                                            'estimatedTime']
+                                                        is String) {
+                                                      estimatedMinutes =
+                                                          int.tryParse(taskMap[
+                                                                      'estimatedTime']
+                                                                  .toString()) ??
+                                                              0;
+                                                    }
 
-                                              return HabitTask(
-                                                id: uuid.v4(),
-                                                description: taskMap['task']?.toString() ?? 'Unnamed Task',
-                                                difficulty: taskMap['difficulty']?.toString() ?? 'Medium',
-                                                estimatedTimeMinutes: estimatedMinutes,
-                                              );
-                                          } else {
-                                            print("Skipping invalid task data: $taskMap");
-                                            return null;
-                                          }
-                                        }).whereType<HabitTask>().toList();
+                                                    return HabitTask(
+                                                      id: uuid.v4(),
+                                                      description: taskMap[
+                                                                  'task']
+                                                              ?.toString() ??
+                                                          'Unnamed Task',
+                                                      difficulty: taskMap[
+                                                                  'difficulty']
+                                                              ?.toString() ??
+                                                          'Medium',
+                                                      estimatedTimeMinutes:
+                                                          estimatedMinutes,
+                                                    );
+                                                  } else {
+                                                    print(
+                                                        "Skipping invalid task data: $taskMap");
+                                                    return null;
+                                                  }
+                                                })
+                                                .whereType<HabitTask>()
+                                                .toList();
 
                                         final newHabit = Habit(
                                           id: uuid.v4(),
@@ -1352,8 +1799,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                           Navigator.pop(dialogContext);
                                         }
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Could not break down goal/habit. AI service might be unavailable. Please try again.')),
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                                content: Text(
+                                                    'Could not break down goal/habit. AI service might be unavailable. Please try again.')),
                                           );
                                         }
                                       }
@@ -1364,14 +1814,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                         Navigator.pop(dialogContext);
                                       }
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('An error occurred while creating the goal/habit. Please try again.')),
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content: Text(
+                                                  'An error occurred while creating the goal/habit. Please try again.')),
                                         );
                                       }
                                     } finally {
                                       if (mounted) {
                                         setDialogState(() {
-                                          _isLoadingInDialog = false;
+                                          isLoadingInDialog = false;
                                         });
                                         setState(() {
                                           _isAddingHabit = false;
@@ -1490,17 +1943,19 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         await habitProvider.removeHabit(habit.id);
         if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('"${habit.concisePromptTitle}" deleted.')),
-            );
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('"${habit.concisePromptTitle}" deleted.')),
+          );
         }
       } catch (e) {
-         print("Error deleting habit: $e");
-         if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error deleting ${habit.habitType == HabitType.goal ? "goal" : "habit"}. Please try again.')),
-            );
-         }
+        print("Error deleting habit: $e");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Error deleting ${habit.habitType == HabitType.goal ? "goal" : "habit"}. Please try again.')),
+          );
+        }
       }
     }
   }
@@ -1549,13 +2004,14 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             children: [
               Expanded(
-                flex: 0, 
+                flex: 0,
                 child: GestureDetector(
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const CharacterCustomizationScreen(),
+                        builder: (context) =>
+                            const CharacterCustomizationScreen(),
                       ),
                     );
                   },
@@ -1598,7 +2054,9 @@ class _HomeScreenState extends State<HomeScreen> {
               });
             },
             child: Icon(
-              _characterIsAnimating ? Icons.pause_circle_filled : Icons.play_circle_filled,
+              _characterIsAnimating
+                  ? Icons.pause_circle_filled
+                  : Icons.play_circle_filled,
               size: 30,
               color: Colors.white,
             ),
@@ -1611,10 +2069,3 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// Add String extension for capitalization
-extension StringExtension on String {
-    String capitalize() {
-      if (isEmpty) return "";
-      return "${this[0].toUpperCase()}${substring(1).toLowerCase()}";
-    }
-} 

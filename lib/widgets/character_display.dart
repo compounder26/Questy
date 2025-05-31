@@ -15,6 +15,7 @@ class CharacterDisplay extends StatefulWidget {
   final bool animate;
   final String? backgroundAsset; // Optional specific background path
   final Background? background; // Optional background model
+  final bool showInventoryButton; // Control whether to show the inventory button
 
   const CharacterDisplay({
     super.key,
@@ -22,6 +23,7 @@ class CharacterDisplay extends StatefulWidget {
     this.animate = false,
     this.backgroundAsset, // Made optional
     this.background, // Added background model
+    this.showInventoryButton = true, // Default to showing the button
   });
 
   @override
@@ -127,26 +129,65 @@ class _CharacterDisplayState extends State<CharacterDisplay> with SingleTickerPr
       builder: (context, child) {
         final currentOffset = widget.animate ? _animation.value : 0.0;
 
-        return Container(
-          // Background Image
-          decoration: BoxDecoration(
-            // Add fallback color in case background image fails
-            color: Colors.grey[200],
-            image: DecorationImage(
-              image: AssetImage(_effectiveBackgroundAsset),
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.high, // Changed to high for detailed backgrounds
-              onError: (error, stackTrace) {
-                print("Error loading background: $_effectiveBackgroundAsset\n$error");
-              }
+        return Stack(
+          children: [
+            Container(
+              // Background Image
+              decoration: BoxDecoration(
+                // Add fallback color in case background image fails
+                color: Colors.grey[200],
+                image: DecorationImage(
+                  image: AssetImage(_effectiveBackgroundAsset),
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.high, // Changed to high for detailed backgrounds
+                  onError: (error, stackTrace) {
+                    print("Error loading background: $_effectiveBackgroundAsset\n$error");
+                  }
+                ),
+              ),
+              child: Center(
+                child: Transform.translate(
+                  offset: Offset(currentOffset, 0), // Apply animation offset
+                  child: _buildCharacterImage(widget.character.bodyAsset),
+                ),
+              ),
             ),
-          ),
-          child: Center(
-            child: Transform.translate(
-              offset: Offset(currentOffset, 0), // Apply animation offset
-              child: _buildCharacterImage(widget.character.bodyAsset),
-            ),
-          ),
+            // Inventory button in the bottom right corner (conditionally shown)
+            if (widget.showInventoryButton)
+              Positioned(
+                bottom: 20,
+                right: 20,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/inventory');
+                  },
+                  child: Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.brown.shade800,
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.brown.shade900, width: 3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          spreadRadius: 2,
+                          blurRadius: 5,
+                          offset: const Offset(3, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.inventory_2,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );

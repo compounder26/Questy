@@ -5,16 +5,16 @@ import '../theme/app_theme.dart';
 
 class AttributeStatsDisplay extends StatelessWidget {
   final User user;
-  
+
   const AttributeStatsDisplay({
-    super.key, 
+    super.key,
     required this.user,
   });
 
   @override
   Widget build(BuildContext context) {
     final stats = user.attributeStats;
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       decoration: AppTheme.woodenFrameDecoration.copyWith(
@@ -31,12 +31,15 @@ class AttributeStatsDisplay extends StatelessWidget {
           // Level and EXP bar in one row
           _buildLevelAndExpBar(),
           const SizedBox(height: 6),
-          
+
           // Attribute bars in a compact format
           _buildAttributeBar('H', 'Health', stats.health, stats.healthLevel),
-          _buildAttributeBar('I', 'Intelligence', stats.intelligence, stats.intelligenceLevel),
-          _buildAttributeBar('C', 'Cleanliness', stats.cleanliness, stats.cleanlinessLevel),
-          _buildAttributeBar('C', 'Charisma', stats.charisma, stats.charismaLevel),
+          _buildAttributeBar(
+              'I', 'Intelligence', stats.intelligence, stats.intelligenceLevel),
+          _buildAttributeBar(
+              'C', 'Cleanliness', stats.cleanliness, stats.cleanlinessLevel),
+          _buildAttributeBar(
+              'C', 'Charisma', stats.charisma, stats.charismaLevel),
           _buildAttributeBar('U', 'Unity', stats.unity, stats.unityLevel),
           _buildAttributeBar('P', 'Power', stats.power, stats.powerLevel),
         ],
@@ -85,7 +88,7 @@ class AttributeStatsDisplay extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // Star count
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -112,7 +115,8 @@ class AttributeStatsDisplay extends StatelessWidget {
                   width: 20,
                   height: 20,
                   errorBuilder: (context, error, stackTrace) {
-                    return const Icon(Icons.star, color: Colors.amber, size: 20);
+                    return const Icon(Icons.star,
+                        color: Colors.amber, size: 20);
                   },
                 ),
               ],
@@ -120,12 +124,12 @@ class AttributeStatsDisplay extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        
+
         // Experience bar
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
+            const Text(
               'EXP',
               style: TextStyle(
                 color: Colors.white,
@@ -142,7 +146,7 @@ class AttributeStatsDisplay extends StatelessWidget {
             ),
             Text(
               '${user.exp}/${user.getExpNeededForNextLevel()}',
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
@@ -170,7 +174,7 @@ class AttributeStatsDisplay extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            
+
             // Filled portion
             FractionallySizedBox(
               widthFactor: user.getLevelProgress().clamp(0.0, 1.0),
@@ -197,15 +201,15 @@ class AttributeStatsDisplay extends StatelessWidget {
   }
 
   Widget _buildAttributeBar(
-    String shortName, 
-    String fullName, 
-    double value, 
+    String shortName,
+    String fullName,
+    double value,
     AttributeLevel level,
   ) {
     // Calculate percentage filled (max value for display purposes is 60)
     final double percentage = (value / 60.0).clamp(0.0, 1.0);
     final Color barColor = _getAttributeBarColor(shortName, fullName);
-    
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Column(
@@ -234,7 +238,7 @@ class AttributeStatsDisplay extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              
+
               // Level text
               Text(
                 level.displayName,
@@ -245,9 +249,9 @@ class AttributeStatsDisplay extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              
+
               const Spacer(),
-              
+
               // Value display
               Text(
                 value.toStringAsFixed(1),
@@ -261,7 +265,7 @@ class AttributeStatsDisplay extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 2),
-          
+
           // Progress bar (simplified)
           Stack(
             children: [
@@ -274,7 +278,7 @@ class AttributeStatsDisplay extends StatelessWidget {
                   border: Border.all(color: Colors.black, width: 1),
                 ),
               ),
-              
+
               // Filled portion
               FractionallySizedBox(
                 widthFactor: percentage,
@@ -308,7 +312,7 @@ class AttributeStatsDisplay extends StatelessWidget {
     if (shortName == 'P') return Colors.purple.shade600; // Power - Purple
     return Colors.grey.shade500; // Default
   }
-  
+
   // Get color based on attribute level
   Color _getLevelColor(AttributeLevel level) {
     switch (level) {
@@ -326,4 +330,4 @@ class AttributeStatsDisplay extends StatelessWidget {
         return Colors.red[400]!;
     }
   }
-} 
+}

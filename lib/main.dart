@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/home_screen.dart';
+import 'screens/inventory_screen.dart';
 import 'services/ai_service.dart';
 import 'models/user.dart';
 import 'providers/habit_provider.dart';
 import 'providers/character_provider.dart';
+import 'providers/inventory_provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'services/user_service.dart';
@@ -14,6 +16,7 @@ import 'models/habit.dart';
 import 'models/habit_task.dart';
 import 'models/enums/habit_type.dart';
 import 'models/enums/recurrence.dart';
+import 'models/inventory_item.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,17 +31,20 @@ Future<void> main() async {
   if (!Hive.isAdapterRegistered(RecurrenceAdapter().typeId)) {
     Hive.registerAdapter(RecurrenceAdapter());
   }
-   if (!Hive.isAdapterRegistered(HabitTaskAdapter().typeId)) {
+  if (!Hive.isAdapterRegistered(HabitTaskAdapter().typeId)) {
     Hive.registerAdapter(HabitTaskAdapter());
   }
-   if (!Hive.isAdapterRegistered(HabitAdapter().typeId)) {
+  if (!Hive.isAdapterRegistered(HabitAdapter().typeId)) {
     Hive.registerAdapter(HabitAdapter());
   }
-  // Character adapters will be added once generated
+  if (!Hive.isAdapterRegistered(5)) { // TypeId 5 for InventoryItemAdapter
+    Hive.registerAdapter(InventoryItemAdapter());
+  }
 
   // Open Boxes
   await Hive.openBox<Habit>('habits'); // Open the box for Habits
   await Hive.openBox('preferences'); // Open the box for preferences
+  await Hive.openBox<InventoryItem>('inventory'); // Open the box for inventory items
 
   // Load or create the user
   User? savedUser = await UserService.loadUser();
@@ -79,6 +85,14 @@ class MyApp extends StatelessWidget {
             return provider;
           },
         ),
+        ChangeNotifierProvider<InventoryProvider>(
+          create: (_) {
+            final provider = InventoryProvider();
+            // Initialize inventory provider to load items from storage
+            provider.initialize();
+            return provider;
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'Questy',
@@ -100,7 +114,11 @@ class MyApp extends StatelessWidget {
           ),
         ),
         themeMode: ThemeMode.dark,
-        home: const MainScreen(),
+        initialRoute: '/',
+        routes: {
+          '/': (context) => const MainScreen(),
+          '/inventory': (context) => const InventoryScreen(),
+        },
       ),
     );
   }

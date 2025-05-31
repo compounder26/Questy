@@ -24,13 +24,15 @@ class HabitTaskAdapter extends TypeAdapter<HabitTask> {
       isCompleted: fields[4] as bool,
       lastCompletedDate: fields[5] as DateTime?,
       pointsAwarded: fields[6] as int?,
+      expAwarded: fields[7] as int?,
+      attributesAwarded: (fields[8] as Map?)?.cast<String, double>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, HabitTask obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -44,7 +46,11 @@ class HabitTaskAdapter extends TypeAdapter<HabitTask> {
       ..writeByte(5)
       ..write(obj.lastCompletedDate)
       ..writeByte(6)
-      ..write(obj.pointsAwarded);
+      ..write(obj.pointsAwarded)
+      ..writeByte(7)
+      ..write(obj.expAwarded)
+      ..writeByte(8)
+      ..write(obj.attributesAwarded);
   }
 
   @override
