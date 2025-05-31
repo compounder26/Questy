@@ -553,4 +553,140 @@ class AIService {
       return {'isValid': false, 'reason': 'Exception during AI verification call.', 'suggestedAttribute': 'Unity'};
     }
   }
+
+  /// Validates if a habit description is coherent enough for AI processing
+  /// Returns a map with 'isValid' boolean and 'reason' string explaining why it's valid/invalid
+  Future<Map<String, dynamic>> validateHabitDescription(String description) async {
+    await _initialize(); // Ensure client is initialized
+    if (_authClient == null) {
+      print("Error: Auth client not initialized for validateHabitDescription.");
+      return {'isValid': false, 'reason': 'Authentication not initialized.'};
+    }
+
+    // Simple client-side validation for obviously invalid descriptions
+    if (description.trim().isEmpty) {
+      return {
+        'isValid': false,
+        'reason': 'Description cannot be empty. Please provide a meaningful description of your goal or habit.'
+      };
+    }
+
+    // Check for very short or generic inputs
+    final lowercaseDesc = description.toLowerCase().trim();
+    final invalidShortTerms = [
+      'hi', 'hello', 'test', 'xyz', 'asdf', 'qwerty', 'ok', 'yes', 'no',
+      'a', 'b', 'c', '123', 'abc', 'lol', 'haha', 'what', 'why', 'how', 'hmm'
+    ];
+    
+    if (description.length < 5 || invalidShortTerms.contains(lowercaseDesc)) {
+      return {
+        'isValid': false,
+        'reason': 'Please provide a more detailed and coherent description of your goal or habit. Short phrases or generic terms cannot be processed into meaningful tasks.'
+      };
+    }
+
+    // Use AI to validate more complex cases
+    final url = Uri.parse(
+        'https://$_region-aiplatform.googleapis.com/v1/projects/$_projectId/locations/$_region/publishers/google/models/$_modelName:generateContent');
+
+    final prompt = '''
+    You are validating a user's input for creating a habit or goal in a self-improvement app.
+    The input must be coherent, specific enough to be broken down into tasks, and represent a genuine self-improvement goal or habit.
+    
+    User input: "$description"
+    
+    Determine if this input is valid for AI processing into tasks. Invalid inputs include:
+    1. Nonsensical text or random characters
+    2. Extremely vague descriptions that can't be broken down (e.g., "be better")
+    3. Inappropriate content
+    4. Content not related to self-improvement or personal goals
+    5. Test messages or placeholders (e.g., "testing", "asdf")
+    
+    Respond with ONLY a JSON object containing the following keys:
+    - "isValid": boolean (true if the input is valid, false otherwise)
+    - "reason": string (explain why the input is valid or invalid - this must be detailed)
+    
+    Do not use markdown code fences.
+    ''';
+
+    final requestBody = jsonEncode({
+      "contents": [{
+        "role": "user",
+        "parts": [{"text": prompt}]
+      }],
+      "generationConfig": {
+        "responseMimeType": "application/json",
+      }
+    });
+
+    try {
+      final response = await _authClient!.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: requestBody,
+      );
+
+      if (response.statusCode == 200) {
+        final responseJson = jsonDecode(response.body);
+        if (responseJson['candidates'] != null &&
+            (responseJson['candidates'] as List).isNotEmpty &&
+            responseJson['candidates'][0]['content'] != null &&
+            responseJson['candidates'][0]['content']['parts'] != null &&
+            (responseJson['candidates'][0]['content']['parts'] as List).isNotEmpty &&
+            responseJson['candidates'][0]['content']['parts'][0]['text'] != null) {
+
+            final modelOutputText = responseJson['candidates'][0]['content']['parts'][0]['text'] as String;
+            
+            try {
+              final decoded = jsonDecode(modelOutputText) as Map<String, dynamic>;
+              if (decoded.containsKey('isValid') && decoded['isValid'] is bool) {
+                 final reason = decoded['reason'];
+                 
+                 if (reason == null || reason is String) {
+                     return {
+                         'isValid': decoded['isValid'],
+                         'reason': (reason == null || reason.isEmpty) 
+                                    ? (decoded['isValid'] 
+                                       ? 'Description is valid for processing.'
+                                       : 'Description is not detailed enough for processing.')
+                                    : reason,
+                     };
+                 }
+              }
+              return {'isValid': false, 'reason': 'The description could not be properly validated.'};
+
+            } catch (e) {
+              print("Error decoding validation JSON from Vertex AI: $e");
+              // Fall back to client-side validation
+              return {
+                'isValid': description.length >= 10, 
+                'reason': description.length >= 10 
+                  ? 'Basic validation passed, but AI validation failed.'
+                  : 'Description is too short and AI validation failed.'
+              };
+            }
+        }
+      }
+      
+      // If we get here, something went wrong with the API call
+      print('Error or unexpected structure in AI validation response: ${response.statusCode}');
+      // Fall back to basic validation
+      return {
+        'isValid': description.length >= 10,
+        'reason': description.length >= 10 
+          ? 'Basic validation passed, but advanced validation unavailable.'
+          : 'Description is too short.'
+      };
+      
+    } catch (e) {
+      print('Error in validateHabitDescription with Vertex AI: $e');
+      // Fall back to basic validation if AI call fails
+      return {
+        'isValid': description.length >= 10,
+        'reason': description.length >= 10 
+          ? 'Basic validation passed (AI validation unavailable).'
+          : 'Description is too short.'
+      };
+    }
+  }
 }

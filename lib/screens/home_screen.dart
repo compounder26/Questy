@@ -1576,6 +1576,9 @@ class _HomeScreenState extends State<HomeScreen> {
         final String? suggestedAttribute =
             verificationResult['suggestedAttribute'];
 
+        // First make sure we dismiss the loading dialog - BEFORE any other actions
+        _dismissLoadingDialog(loadingDialogContext, context);
+        
         if (isValid) {
           // Mark task complete & Award Stars and EXP
           task.isCompleted = true;
@@ -1713,31 +1716,34 @@ class _HomeScreenState extends State<HomeScreen> {
                     'Task verified! +$starsAwarded stars and +$expAwarded EXP.')),
           );
         } else {
-          // Show rejection reason from AI
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  'Verification Failed: ${reason ?? "No specific reason provided."}'),
-              duration: const Duration(seconds: 5),
-              action: SnackBarAction(
-                label: 'OK',
-                onPressed: () {
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                },
-              ),
-            ),
+          // Show rejection reason from AI in a popup dialog
+          _showErrorPopup(
+            context: context,
+            title: 'Verification Failed',
+            message: reason ??
+                "No specific reason provided for why this task completion couldn't be verified.",
           );
         }
       } catch (e) {
         print("Error verifying task: $e");
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Error verifying task. Please try again.')),
+        _showErrorPopup(
+          context: context,
+          title: 'Verification Error',
+          message:
+              'There was a problem connecting to the verification service. Please check your connection and try again.',
         );
-      } finally {
-        // Always ensure the loading dialog is closed
-        if (loadingDialogContext != null) {
-          Navigator.of(loadingDialogContext!).pop();
+      } catch (e) {
+        // Close dialog if it's still open
+        _dismissLoadingDialog(loadingDialogContext, context);
+        
+        // Show error message
+        print("Error verifying task: $e");
+        if (context.mounted) {
+          _showErrorPopup(
+            context: context,
+            title: 'Verification Error',
+            message: 'There was a problem connecting to the verification service. Please check your connection and try again.',
+          );
         }
       }
     }
@@ -1866,16 +1872,53 @@ class _HomeScreenState extends State<HomeScreen> {
                                 onPressed: () async {
                                   final originalDescription =
                                       _habitController.text;
+                                  // Check if the description is coherent enough
                                   if (originalDescription.isNotEmpty) {
+                                    // Start showing the loading dialog first
                                     setDialogState(() {
                                       isLoadingInDialog = true;
                                     });
+                                    
+                                    // Use AI service to validate the habit description
+                                    final validationResult = await context.read<AIService>()
+                                        .validateHabitDescription(originalDescription);
+                                        
+                                    // If the description is not valid, show error and return
+                                    if (!validationResult['isValid']) {
+                                      // Hide loading indicator
+                                      setDialogState(() {
+                                        isLoadingInDialog = false;
+                                      });
+                                      
+                                      // Show error popup
+                                      if (context.mounted) {
+                                        // Close the dialog first
+                                        Navigator.pop(dialogContext);
+                                        
+                                        // Then show the error popup
+                                        _showErrorPopup(
+                                          context: context,
+                                          title: 'Invalid Goal/Habit Description',
+                                          message: validationResult['reason'] ?? 
+                                              'Please provide a more detailed and coherent description of your goal or habit.',
+                                        );
+                                      }
+                                      
+                                      // Reset state
+                                      setState(() {
+                                        _isAddingHabit = false;
+                                        _habitController.clear();
+                                      });
+                                      
+                                      return;
+                                    }
+                                    
+                                    // If we get here, the validation passed - continue with processing
+                                    // Note: we're already showing the loading indicator
 
                                     final aiService = context.read<AIService>();
                                     final habitProvider =
                                         context.read<HabitProvider>();
-                                    final scaffoldMessenger =
-                                        ScaffoldMessenger.of(context);
                                     const uuid = Uuid();
 
                                     try {
@@ -1986,11 +2029,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                           Navigator.pop(dialogContext);
                                         }
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            const SnackBar(
-                                                content: Text(
-                                                    'Could not break down goal/habit. AI service might be unavailable. Please try again.')),
+                                          _showErrorPopup(
+                                            context: context,
+                                            title: 'AI Processing Error',
+                                            message:
+                                                'Could not break down your goal/habit. The AI service might be unavailable. Please try again with a more detailed description.',
                                           );
                                         }
                                       }
@@ -2001,11 +2044,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                         Navigator.pop(dialogContext);
                                       }
                                       if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content: Text(
-                                                  'An error occurred while creating the goal/habit. Please try again.')),
+                                        _showErrorPopup(
+                                          context: context,
+                                          title: 'Goal/Habit Creation Error',
+                                          message:
+                                              'An error occurred while processing your goal/habit. Please try again with a clearer description.',
                                         );
                                       }
                                     } finally {
@@ -2266,6 +2309,84 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+
+  // Helper method to safely dismiss loading dialogs
+  void _dismissLoadingDialog(BuildContext? dialogContext, BuildContext parentContext) {
+    if (dialogContext != null && parentContext.mounted) {
+      try {
+        if (Navigator.of(dialogContext, rootNavigator: true).canPop()) {
+          Navigator.of(dialogContext, rootNavigator: true).pop();
+        }
+      } catch (e) {
+        print("Error closing dialog: $e");
+        // Fallback attempt if the context is invalid
+        try {
+          if (parentContext.mounted) {
+            Navigator.of(parentContext, rootNavigator: true).pop();
+          }
+        } catch (e) {
+          print("Failed fallback attempt to close dialog: $e");
+        }
+      }
+    }
+  }
+
+  // Show an error popup with custom title and message
+  void _showErrorPopup(
+      {required BuildContext context,
+      required String title,
+      required String message}) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              image: const DecorationImage(
+                image: AssetImage(AppTheme.woodBackgroundPath),
+                fit: BoxFit.cover,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppTheme.darkWood,
+                width: 3,
+              ),
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: AppTheme.pixelHeadingStyle,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  message,
+                  style: AppTheme.pixelBodyStyle,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                PixelButton(
+                  width: 100,
+                  backgroundColor: AppTheme.blueHighlight,
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
