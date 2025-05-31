@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import './reward.dart'; // Import the new Reward class
 import '../services/user_service.dart'; // Import the UserService
 import './attribute_stats.dart'; // Import the new AttributeStats class
+import './user_reward_purchase_status.dart'; // Import for consumable reward status
 
 // New class for purchase history items
 class PurchaseHistoryItem {
@@ -45,6 +46,7 @@ class User extends ChangeNotifier {
   List<String> ownedRewardIds; // Store IDs of owned rewards
   AttributeStats attributeStats; // New attribute stats
   List<PurchaseHistoryItem> purchaseHistory; // New field for purchase history
+  Map<String, UserRewardPurchaseStatus> consumableRewardStatus; // Tracks status of consumable rewards
 
   User({
     required this.id,
@@ -55,10 +57,12 @@ class User extends ChangeNotifier {
     List<String>? ownedRewardIds,
     AttributeStats? attributeStats, // New parameter
     List<PurchaseHistoryItem>? purchaseHistory, // New parameter
+    Map<String, UserRewardPurchaseStatus>? consumableRewardStatus, // New parameter
   }) : 
     ownedRewardIds = ownedRewardIds ?? [],
     attributeStats = attributeStats ?? AttributeStats(),
-    purchaseHistory = purchaseHistory ?? []; // Initialize new field
+    purchaseHistory = purchaseHistory ?? [], // Initialize new field
+    consumableRewardStatus = consumableRewardStatus ?? {}; // Initialize new field
 
   Map<String, dynamic> toJson() {
     return {
@@ -70,6 +74,7 @@ class User extends ChangeNotifier {
       'ownedRewardIds': ownedRewardIds,
       'attributeStats': attributeStats.toJson(), // Serialize attribute stats
       'purchaseHistory': purchaseHistory.map((item) => item.toJson()).toList(), // Serialize purchase history
+      'consumableRewardStatus': consumableRewardStatus.map((key, value) => MapEntry(key, value.toJson())), // Serialize consumable reward status
     };
   }
 
@@ -87,6 +92,9 @@ class User extends ChangeNotifier {
       purchaseHistory: (json['purchaseHistory'] as List<dynamic>?)
           ?.map((item) => PurchaseHistoryItem.fromJson(item as Map<String, dynamic>))
           .toList() ?? [],
+      consumableRewardStatus: (json['consumableRewardStatus'] as Map<String, dynamic>?)
+          ?.map((key, value) => MapEntry(key, UserRewardPurchaseStatus.fromJson(value as Map<String, dynamic>))) 
+          ?? {},
     );
   }
 
@@ -143,57 +151,136 @@ class User extends ChangeNotifier {
 
   // Method to attempt purchasing a reward
   bool purchaseReward(Reward reward) {
-    // Only check if user has enough stars - removed ownership check to allow multiple purchases
-    if (starCurrency >= reward.cost) {
-      starCurrency -= reward.cost;
-      
-      // Handle special rewards with effects
-      if (reward.type != null) {
-        if (reward.type == 'attribute_boost' && reward.effectData != null) {
-          // Apply attribute boost
-          final String? attribute = reward.effectData!['attribute'] as String?;
-          final double? amount = reward.effectData!['amount'] as double?;
-          
-          if (attribute != null && amount != null) {
-            increaseAttribute(attribute, amount);
-          }
-        } else if (reward.type == 'exp_boost' && reward.effectData != null) {
-          // Apply EXP boost
-          final int? expAmount = reward.effectData!['amount'] as int?;
-          
-          if (expAmount != null) {
-            addExp(expAmount);
-          }
-        }
+    // Check if user has enough currency
+    if (starCurrency < reward.cost) {
+      print('Purchase failed: Insufficient star currency.');
+      return false; // Insufficient funds
+    }
+
+    // Handle collectible items
+    if (reward.isCollectible) {
+      if (ownedRewardIds.contains(reward.id)) {
+        print('Purchase failed: Collectible item already owned.');
+        return false; // Already owned
       }
-      
-      // Add to purchase history
+      starCurrency -= reward.cost;
+      ownedRewardIds.add(reward.id);
+      // Add to general purchase history
       purchaseHistory.add(PurchaseHistoryItem(
         itemId: reward.id,
         itemName: reward.name,
         purchaseDate: DateTime.now(),
-        isCollectible: reward.isCollectible, // Use the updated field name
+        isCollectible: true,
         iconAsset: reward.iconAsset,
       ));
-
-      // For collectible items, track ownership
-      if (reward.isCollectible && !ownedRewardIds.contains(reward.id)) {
-        ownedRewardIds.add(reward.id);
-      }
-      // For permanent items, we still track that the item has been purchased at least once
-      // but don't prevent repurchasing
-      // if (!ownedRewardIds.contains(reward.id)) {  // This logic is now handled by isCollectible check
-      //   ownedRewardIds.add(reward.id);
-      // }
-      
-      notifyListeners(); // Notify listeners about the change in starCurrency and rewards
-      
-      // Save user data to persistent storage
+      // Apply effects if any (though collectibles might not have immediate use effects like consumables)
+      _applyRewardEffects(reward);
+      notifyListeners();
       UserService.saveUser(this);
-      return true; // Purchase successful
+      return true;
+    }
+
+    // Handle consumable items (or items without specific collectible status but with limits)
+    if (reward.purchaseLimitPerPeriod != null && reward.purchasePeriodHours != null) {
+      UserRewardPurchaseStatus status = consumableRewardStatus[reward.id] ?? 
+                                      UserRewardPurchaseStatus(rewardId: reward.id);
+
+      // Check cooldown status
+      if (status.cooldownStartTime != null) {
+        final cooldownEndTime = status.cooldownStartTime!.add(Duration(hours: reward.purchasePeriodHours!));
+        if (DateTime.now().isBefore(cooldownEndTime)) {
+          print('Purchase failed: Item is on cooldown.');
+          return false; // Item on cooldown
+        } else {
+          // Cooldown has passed, reset status
+          status = status.copyWith(purchaseCount: 0, setCooldownStartTimeToNull: true);
+        }
+      }
+
+      // Check purchase limit
+      if (status.purchaseCount >= reward.purchaseLimitPerPeriod!) {
+        // This case should ideally be caught by cooldown, but as a safeguard:
+        // If limit is met, and not on cooldown (e.g. first time hitting limit after reset)
+        // We should initiate cooldown here if not already done.
+        // However, the purchase itself should be denied if count is already at limit.
+        print('Purchase failed: Purchase limit reached for the period.');
+        // Ensure cooldown is set if it wasn't (e.g., if data was manually changed or an edge case)
+        if (status.cooldownStartTime == null) {
+            consumableRewardStatus[reward.id] = status.copyWith(cooldownStartTime: DateTime.now());
+            notifyListeners();
+            UserService.saveUser(this);
+        }
+        return false; 
+      }
+
+      // Process the purchase for consumable
+      starCurrency -= reward.cost;
+      int newPurchaseCount = status.purchaseCount + 1;
+      DateTime? newCooldownStartTime = status.cooldownStartTime;
+
+      if (newPurchaseCount >= reward.purchaseLimitPerPeriod!) {
+        newCooldownStartTime = DateTime.now(); // Start cooldown as limit is now hit
+      }
+      
+      consumableRewardStatus[reward.id] = status.copyWith(
+        purchaseCount: newPurchaseCount,
+        cooldownStartTime: newCooldownStartTime,
+      );
+      
+      // Add to general purchase history
+      purchaseHistory.add(PurchaseHistoryItem(
+        itemId: reward.id,
+        itemName: reward.name,
+        purchaseDate: DateTime.now(),
+        isCollectible: false,
+        iconAsset: reward.iconAsset,
+      ));
+      _applyRewardEffects(reward);
+      notifyListeners();
+      UserService.saveUser(this);
+      return true;
+
     } else {
-      // Only fails if not enough stars
-      return false; // Purchase failed - insufficient funds
+      // Consumable item without a specific limit/cooldown (behaves like a simple purchase)
+      starCurrency -= reward.cost;
+      // Add to general purchase history
+      purchaseHistory.add(PurchaseHistoryItem(
+        itemId: reward.id,
+        itemName: reward.name,
+        purchaseDate: DateTime.now(),
+        isCollectible: false, // Assuming if not collectible and no limit, it's a generic consumable
+        iconAsset: reward.iconAsset,
+      ));
+      _applyRewardEffects(reward);
+      notifyListeners();
+      UserService.saveUser(this);
+      return true;
+    }
+  }
+
+  // Helper method to apply reward effects, extracted for clarity
+  void _applyRewardEffects(Reward reward) {
+    if (reward.type != null && reward.effectData != null) {
+      switch (reward.type) {
+        case 'attribute_boost':
+          final String? attribute = reward.effectData!['attribute'] as String?;
+          final double? amount = reward.effectData!['amount'] as double?;
+          if (attribute != null && amount != null) {
+            increaseAttribute(attribute, amount);
+          }
+          break;
+        case 'exp_boost':
+          final int? expAmount = reward.effectData!['amount'] as int?;
+          if (expAmount != null) {
+            addExp(expAmount);
+          }
+          break;
+        // Add other effect types here if necessary
+        // e.g., case 'task_eraser':
+        // case 'reward_multiplier':
+        // case 'daily_reset':
+        // case 'currency_multiplier':
+      }
     }
   }
 
