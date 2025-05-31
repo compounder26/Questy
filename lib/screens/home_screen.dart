@@ -1,30 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
+import 'dart:typed_data';
+
+// Models
 import '../models/habit.dart';
+import '../models/habit_task.dart';
 import '../models/user.dart';
 import '../models/reward.dart';
 import '../models/attribute_stats.dart';
-import '../services/ai_service.dart';
-import '../theme/app_theme.dart';
-import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
+import '../models/enums/habit_type.dart';
+import '../models/enums/recurrence.dart';
+
+// Providers
 import '../providers/habit_provider.dart';
 import '../providers/character_provider.dart';
 import '../providers/inventory_provider.dart';
-import '../widgets/character_display.dart';
-import 'package:uuid/uuid.dart';
-import './character_customization_screen.dart';
-import 'package:questy/models/enums/habit_type.dart';
-import 'package:questy/models/enums/recurrence.dart';
-import './history_screen.dart';
-import '../models/habit_task.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:typed_data';
-// import '../theme/app_theme.dart'; // Duplicate removed
+import '../providers/reward_provider.dart';
+
+// Services
+import '../services/ai_service.dart';
+import '../services/user_service.dart';
+
+// Theme
+import '../theme/app_theme.dart';
+
+// Widgets
+import '../widgets/cooldown_timer_widget.dart';
 import '../widgets/pixel_button.dart';
 import '../widgets/pixel_checkbox.dart';
+import '../widgets/character_display.dart';
+
+// Utils
 import '../utils/string_extensions.dart';
-import 'package:questy/widgets/cooldown_timer_widget.dart';
-// import '../widgets/reward_cooldown_timer_widget.dart'; // Unused import removed
+
+// Screens
+import './character_customization_screen.dart';
+import './history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,8 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _carouselItems = [];
   bool _isAddingHabit = false;
   final TextEditingController _habitController = TextEditingController();
-  final List<types.Message> _messages = [];
-  final _user = const types.User(id: '1', firstName: 'User');
+  // Removed unused message-related variables
   final PageController _pageController = PageController(viewportFraction: 1.0);
   bool _characterIsAnimating = false;
 
@@ -46,6 +58,23 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _initializeCarouselItems();
+    
+    // Ensure reward state is properly loaded and synchronized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = Provider.of<User>(context, listen: false);
+      final rewardProvider = Provider.of<RewardProvider>(context, listen: false);
+      
+      // Load reward state from persistent storage
+      rewardProvider.loadRewardState(user).then((_) {
+        // Then refresh reward statuses to handle any expired cooldowns
+        rewardProvider.refreshRewardStatuses(user);
+        
+        // Refresh the UI after reward state is loaded
+        if (mounted) {
+          setState(() {});
+        }
+      });
+    });
   }
 
   void _initializeCarouselItems() {
@@ -371,9 +400,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return Colors.orange[400]!;
       case AttributeLevel.sage:
         return Colors.red[400]!;
-      default:
-        return Colors
-            .grey[400]!; // Default case to satisfy non-nullable return type
+      // Removed redundant default case as all enum values are covered
     }
   }
 
@@ -989,17 +1016,40 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       PixelButton(
                         onPressed: () async {
-                          // Process the purchase
+                          // Process the purchase with explicit forced save
                           final success = user.purchaseReward(reward);
                           
                           // Use the parent context for operations outside the dialog
                           Navigator.of(dialogContext).pop(); // Close confirmation dialog
 
                           if (success) {
+                            // Get reward provider for state persistence
+                            final rewardProvider = Provider.of<RewardProvider>(context, listen: false);
+                            
+                            // Explicitly save user data first to ensure persistence
+                            await UserService.saveUser(user);
+                            
                             // Add to inventory if it's a collectible item
                             if (reward.isCollectible) {
-                              inventoryProvider.addItem(reward);
+                              // Ensure the item is added to the inventory
+                              await inventoryProvider.addItem(reward);
                             }
+                            
+                            // Sync inventory with user data
+                            await inventoryProvider.syncWithUser(user);
+                            
+                            // Explicitly save reward state in the dedicated provider for extra persistence
+                            await rewardProvider.saveRewardState(user);
+                            
+                            // Also update reward purchase tracking
+                            await rewardProvider.updateRewardPurchase(user, reward, true);
+                            
+                            // Refresh the statuses to handle any changes
+                            await rewardProvider.refreshRewardStatuses(user);
+                            
+                            // Save user again to ensure consistent state
+                            await UserService.saveUser(user);
+                            
                             // Show success popup using the original build context
                             _showConsumableItemPopup(context, reward);
                           } else {
