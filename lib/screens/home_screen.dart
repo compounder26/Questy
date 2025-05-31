@@ -19,11 +19,12 @@ import './history_screen.dart';
 import '../models/habit_task.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:typed_data';
-import '../theme/app_theme.dart';
+// import '../theme/app_theme.dart'; // Duplicate removed
 import '../widgets/pixel_button.dart';
 import '../widgets/pixel_checkbox.dart';
 import '../utils/string_extensions.dart';
 import 'package:questy/widgets/cooldown_timer_widget.dart';
+// import '../widgets/reward_cooldown_timer_widget.dart'; // Unused import removed
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -713,9 +714,9 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: Consumer<User>(
                 builder: (context, user, child) {
-                  final available = Reward.availableRewards;
+                  final availableRewards = Reward.availableRewards;
 
-                  if (available.isEmpty) {
+                  if (availableRewards.isEmpty) {
                     return const Center(
                       child: Text(
                         'No rewards available in the shop yet!',
@@ -726,23 +727,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
 
                   return ListView.builder(
-                    itemCount: available.length,
+                    itemCount: availableRewards.length,
                     itemBuilder: (context, index) {
-                      final reward = available[index];
+                      final reward = availableRewards[index];
                       final bool canAfford = user.starCurrency >= reward.cost;
+                      final status = user.consumableRewardStatus[reward.id];
+                      final isOwned = user.ownedRewardIds.contains(reward.id);
+                      final bool isActuallyAvailable = reward.isAvailableForUser(status, isOwned);
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: InkWell(
-                          onTap: !canAfford
+                          onTap: !isActuallyAvailable || !canAfford
                               ? null
-                              : () => _showRewardConfirmation(
-                                  context, reward, user),
+                              : () => _showRewardConfirmation(context, reward, user),
                           borderRadius: BorderRadius.circular(8.0),
                           child: Container(
                             padding: const EdgeInsets.all(12.0),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
+                              color: Colors.black.withOpacity(!isActuallyAvailable || !canAfford ? 0.3 : 0.6),
                               borderRadius: BorderRadius.circular(8.0),
                               border: Border.all(
                                 color: Colors.brown[800]!,
@@ -768,121 +771,65 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: reward.iconAsset != null
                                       ? Image.asset(
                                           reward.iconAsset!,
-                                          errorBuilder:
-                                              (context, error, stackTrace) =>
-                                                  const Icon(
-                                            Icons.diamond,
-                                            size: 30,
-                                          ),
+                                          errorBuilder: (context, error, stackTrace) =>
+                                              const Icon(Icons.diamond, size: 30, color: Colors.white70),
                                         )
-                                      : const Icon(
-                                          Icons.star,
-                                          color: Colors.amber,
-                                          size: 30,
-                                        ),
+                                      : const Icon(Icons.star, color: Colors.amber, size: 30),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        reward.name,
-                                        style: AppTheme.pixelBodyStyle.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 18,
-                                          color: Colors.white,
-                                        ),
-                                      ),
+                                      Text(reward.name, style: AppTheme.pixelBodyStyle.copyWith(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
                                       const SizedBox(height: 4),
                                       Text(
                                         reward.description,
-                                        style: AppTheme.pixelBodyStyle.copyWith(
-                                          fontSize: 14,
-                                          color: Colors.white.withOpacity(0.8),
-                                        ),
+                                        style: AppTheme.pixelBodyStyle.copyWith(color: Colors.grey[300], fontSize: 13),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                       const SizedBox(height: 8),
-                                      Wrap(
-                                        spacing: 8,
-                                        crossAxisAlignment:
-                                            WrapCrossAlignment.center,
+                                      Row(
                                         children: [
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                'Cost: ${reward.cost}',
-                                                style: AppTheme.pixelBodyStyle
-                                                    .copyWith(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: canAfford
-                                                      ? Colors.yellowAccent
-                                                      : Colors.white
-                                                          .withOpacity(0.6),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 5),
-                                              Image.asset(
-                                                'assets/images/Accesories/starstar.png',
-                                                width: 20,
-                                                height: 20,
-                                              ),
-                                            ],
+                                          Text(
+                                            'Cost: ${reward.cost}',
+                                            style: AppTheme.pixelBodyStyle.copyWith(color: Colors.amber, fontSize: 15, fontWeight: FontWeight.bold),
                                           ),
-                                          // Display item type
-                                          if (reward.isCollectible)
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 6,
-                                                      vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: Colors.purple
-                                                    .withOpacity(0.7),
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: const Text(
-                                                'COLLECTIBLE',
-                                                style: TextStyle(
-                                                  fontFamily: 'PixelFont',
-                                                  fontSize: 10,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                            )
+                                          const SizedBox(width: 4),
+                                          Image.asset('assets/images/Accesories/starstar.png', width: 18, height: 18),
                                         ],
                                       ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        reward.getAvailabilityTextForUser(status, isOwned),
+                                        style: AppTheme.pixelBodyStyle.copyWith(
+                                          fontSize: 12,
+                                          color: isActuallyAvailable ? Colors.greenAccent : Colors.redAccent,
+                                        ),
+                                      ),
+                                      if (!reward.isCollectible && status?.cooldownStartTime != null && reward.purchasePeriodHours != null) ...[
+                                        Builder(builder: (context) {
+                                          final cooldownEndTime = status!.cooldownStartTime!.add(Duration(hours: reward.purchasePeriodHours!));
+                                          final bool isOnCooldown = DateTime.now().isBefore(cooldownEndTime);
+                                          if (isOnCooldown) {
+                                            return Padding(
+                                              padding: const EdgeInsets.only(top: 4.0),
+                                              child: CooldownTimerWidget(
+                                                lastVerifiedTimestamp: status.cooldownStartTime!,
+                                                cooldownDurationInMinutes: reward.purchasePeriodHours! * 60,
+                                              ),
+                                            );
+                                          }
+                                          return const SizedBox.shrink();
+                                        }),
+                                      ],
                                     ],
                                   ),
                                 ),
-                                SizedBox(
-                                  width: 70,
-                                  height: 40,
-                                  child: PixelButton(
-                                    // Always enable button if user can afford the item
-                                    onPressed: canAfford
-                                        ? () => _showRewardConfirmation(
-                                            context, reward, user)
-                                        : null,
-                                    backgroundColor: canAfford
-                                        ? AppTheme.darkWood
-                                        : Colors.grey.withOpacity(0.5),
-                                    padding: EdgeInsets.zero,
-                                    child: canAfford
-                                        ? Image.asset(
-                                            'assets/images/Accesories/starstar.png',
-                                            fit: BoxFit.contain)
-                                        : const Center(
-                                            child: Icon(Icons.lock_outline,
-                                                color: Colors.white70,
-                                                size: 30)),
-                                  ),
-                                ),
+                                // The InkWell handles the tap, so a separate button might be redundant if the whole item is tappable.
+                                // If a visual button is still desired, its enabled state should also reflect 'isActuallyAvailable && canAfford'.
+                                // For simplicity, relying on InkWell's onTap and visual cues from container opacity.
                               ],
                             ),
                           ),
@@ -902,88 +849,36 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showRewardConfirmation(BuildContext context, Reward reward, User user) {
     final inventoryProvider =
         Provider.of<InventoryProvider>(context, listen: false);
+    final status = user.consumableRewardStatus[reward.id];
+    final isOwned = user.ownedRewardIds.contains(reward.id);
 
-    // Check if user can afford the item first
-    if (user.starCurrency < reward.cost) {
-      // Show not enough stars popup
-      showDialog(
+    // Check if user already owns this collectible (this check is also part of isAvailableForUser for collectibles)
+    // but explicit check here can give a more specific message if desired.
+    if (reward.isCollectible && isOwned) {
+      _showErrorPopup(
         context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            backgroundColor: Colors.transparent,
-            contentPadding: EdgeInsets.zero,
-            content: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: AppTheme.woodenFrameDecoration.copyWith(
-                image: const DecorationImage(
-                  image: AssetImage(AppTheme.woodBackgroundPath),
-                  fit: BoxFit.cover,
-                  opacity: 0.8,
-                ),
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'NOT ENOUGH STARS',
-                    style: TextStyle(
-                      fontFamily: 'PixelFont',
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Icon(
-                    Icons.warning_amber_rounded,
-                    color: Colors.amber,
-                    size: 60,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'You need more stars to purchase this item!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'PixelFont',
-                      fontSize: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '${reward.cost - user.starCurrency} more stars needed',
-                        style: const TextStyle(
-                          fontFamily: 'PixelFont',
-                          fontSize: 14,
-                          color: Colors.amber,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  PixelButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    backgroundColor: AppTheme.darkWood,
-                    child: const Text(
-                      'OK',
-                      style: TextStyle(
-                        fontFamily: 'PixelFont',
-                        fontSize: 14,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+        title: 'ALREADY OWNED',
+        message: 'You already own this collectible item!',
+      );
+      return;
+    }
+
+    // Check if item is available (covers cooldowns, purchase limits for consumables, and ownership for collectibles)
+    if (!reward.isAvailableForUser(status, isOwned)) {
+      _showErrorPopup(
+        context: context,
+        title: reward.isCollectible && isOwned ? 'ALREADY OWNED' : 'UNAVAILABLE',
+        message: reward.getAvailabilityTextForUser(status, isOwned),
+      );
+      return;
+    }
+
+    // Check if user can afford the item
+    if (user.starCurrency < reward.cost) {
+      _showErrorPopup(
+        context: context,
+        title: 'NOT ENOUGH STARS',
+        message: 'You need ${reward.cost - user.starCurrency} more stars to purchase this item!',
       );
       return;
     }
@@ -991,14 +886,14 @@ class _HomeScreenState extends State<HomeScreen> {
     // If user can afford, show the purchase confirmation
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) { // Renamed context to avoid conflict
         return AlertDialog(
           backgroundColor: Colors.transparent,
           contentPadding: EdgeInsets.zero,
           content: Container(
             constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.85,
-              minWidth: MediaQuery.of(context).size.width * 0.6,
+              maxWidth: MediaQuery.of(dialogContext).size.width * 0.85,
+              minWidth: MediaQuery.of(dialogContext).size.width * 0.6,
             ),
             padding: const EdgeInsets.all(20),
             decoration: AppTheme.woodenFrameDecoration.copyWith(
@@ -1069,7 +964,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       PixelButton(
                         onPressed: () {
-                          Navigator.of(context).pop();
+                          Navigator.of(dialogContext).pop();
                         },
                         backgroundColor: Colors.grey.shade700,
                         child: const Text(
@@ -1082,31 +977,37 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       PixelButton(
-                        onPressed: () {
+                        onPressed: () async {
+                          // Process the purchase
                           final success = user.purchaseReward(reward);
-                          Navigator.of(context).pop();
+                          
+                          // Use the parent context for operations outside the dialog
+                          Navigator.of(dialogContext).pop(); // Close confirmation dialog
+
                           if (success) {
                             // Add to inventory if it's a collectible item
                             if (reward.isCollectible) {
                               inventoryProvider.addItem(reward);
-                            } else {
-                              // Show consumable item effect
-                              _showConsumableItemPopup(context, reward);
                             }
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: AppTheme.greenHighlight,
-                                content: Text(
-                                  '${reward.name} purchased!',
-                                  style: AppTheme.pixelBodyStyle,
-                                ),
-                              ),
+                            // Show success popup using the original build context
+                            _showConsumableItemPopup(context, reward);
+                          } else {
+                            // Show error (e.g. if somehow became unaffordable or unavailable again)
+                            // It's good practice to re-fetch status if the purchase failed for an unknown reason
+                            final latestStatus = user.consumableRewardStatus[reward.id];
+                            final latestIsOwned = user.ownedRewardIds.contains(reward.id);
+                            _showErrorPopup(
+                              context: context, // Use original build context for new popup
+                              title: 'PURCHASE FAILED',
+                              message: user.starCurrency < reward.cost 
+                                  ? 'You no longer have enough stars.' 
+                                  : reward.getAvailabilityTextForUser(latestStatus, latestIsOwned),
                             );
                           }
                         },
-                        backgroundColor: AppTheme.darkWood,
+                        backgroundColor: AppTheme.greenHighlight, // Changed from AppTheme.greenButton
                         child: const Text(
-                          'BUY',
+                          'BUY NOW',
                           style: TextStyle(
                             fontFamily: 'PixelFont',
                             fontSize: 14,

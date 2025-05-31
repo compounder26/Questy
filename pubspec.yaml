@@ -109,7 +109,8 @@ flutter:
     - assets/images/Character/
     - assets/images/Background/
     - assets/images/Items/
-    - assets/images/Items/items/
+    - assets/images/Items/Consumables/
+    - assets/images/Items/Collectibles/
     - assets/images/border/
     - assets/images/Accesories/
     - assets/images/ui/
