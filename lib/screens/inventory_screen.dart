@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/inventory_provider.dart';
+import '../providers/habit_provider.dart'; // Needed for habit deletion
 import '../models/inventory_item.dart';
+import '../models/enums/habit_type.dart'; // Import for HabitType enum
 import '../theme/app_theme.dart';
+import '../widgets/pixel_button.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({Key? key}) : super(key: key);
@@ -115,6 +118,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
   
   Widget _buildInventoryItem(BuildContext context, InventoryItem item) {
+    // Determine if this is a consumable item that can be used
+    final bool isConsumable = item.type != null && !item.type!.contains('collectible');
+    final bool isTaskEraser = item.type == 'task_eraser';
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -247,6 +253,33 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ),
             ],
           ),
+          
+          // Add "Use" button for consumable items
+          if (isConsumable) ...[  
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.touch_app),
+              label: const Text('Use'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                if (isTaskEraser) {
+                  _showTaskEraserDialog(context, item);
+                } else {
+                  // Handle other consumable types
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('This item type is not yet implemented')),
+                  );
+                }
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -254,5 +287,139 @@ class _InventoryScreenState extends State<InventoryScreen> {
   
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+  
+  // Show task eraser dialog to select which task/goal/habit to delete
+  void _showTaskEraserDialog(BuildContext context, InventoryItem item) {
+    final habitProvider = Provider.of<HabitProvider>(context, listen: false);
+    final inventoryProvider = Provider.of<InventoryProvider>(context, listen: false);
+    final activeHabits = habitProvider.habits.where((h) => h.isActive).toList();
+    
+    if (activeHabits.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No active tasks or goals to erase')),
+      );
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.85,
+              minWidth: MediaQuery.of(context).size.width * 0.6,
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
+            ),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              image: const DecorationImage(
+                image: AssetImage(AppTheme.woodBackgroundPath),
+                fit: BoxFit.cover,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppTheme.darkWood,
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.5),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Select Task to Erase',
+                  style: AppTheme.pixelHeadingStyle,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Choose which task, goal or habit to delete:',
+                  style: AppTheme.pixelBodyStyle,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: activeHabits.length,
+                    itemBuilder: (context, index) {
+                      final habit = activeHabits[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        color: Colors.brown.withOpacity(0.7),
+                        child: ListTile(
+                          title: Text(
+                            habit.concisePromptTitle,
+                            style: AppTheme.pixelBodyStyle.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: Text(
+                            habit.habitType == HabitType.goal ? 'Goal' : 'Habit',
+                            style: AppTheme.pixelBodyStyle.copyWith(
+                              fontSize: 12,
+                            ),
+                          ),
+                          trailing: PixelButton(
+                            width: 80,
+                            height: 36,
+                            backgroundColor: AppTheme.redHighlight,
+                            onPressed: () async {
+                              // Close the dialog
+                              Navigator.of(context).pop();
+                              
+                              // Delete the habit
+                              try {
+                                await habitProvider.removeHabit(habit.id);
+                                
+                                // Remove the item from inventory after use
+                                await inventoryProvider.removeItem(item.id);
+                                
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('"${habit.concisePromptTitle}" was erased successfully!')),
+                                );
+                              } catch (e) {
+                                print("Error erasing habit: $e");
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error erasing ${habit.habitType == HabitType.goal ? "goal" : "habit"}. Please try again.'),
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text('Erase'),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                PixelButton(
+                  width: 120,
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Cancel'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

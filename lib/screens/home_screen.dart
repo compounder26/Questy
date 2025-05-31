@@ -527,26 +527,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  PopupMenuButton<String>(
-                                    onSelected: (String result) {
-                                      switch (result) {
-                                        case 'delete':
-                                          _confirmAndDeleteHabit(
-                                              context, habit);
-                                          break;
-                                      }
-                                    },
-                                    itemBuilder: (BuildContext context) =>
-                                        <PopupMenuEntry<String>>[
-                                      const PopupMenuItem<String>(
-                                        value: 'delete',
-                                        child: Text('Delete'),
-                                      ),
-                                    ],
-                                    icon: const Icon(Icons.more_vert,
-                                        color: Colors.white),
-                                    tooltip: 'Options',
-                                  ),
+                                  // Popup menu removed as deleting is now only possible through the Task Eraser item
                                 ],
                               ),
                               const SizedBox(height: 4),
@@ -1016,42 +997,77 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       PixelButton(
                         onPressed: () async {
-                          // Process the purchase with explicit forced save
-                          final success = user.purchaseReward(reward);
+                        // For Task Eraser, check if there are any active habits to delete first
+                        if (reward.id == 'task_eraser') {
+                          final habitProvider = Provider.of<HabitProvider>(context, listen: false);
+                          final activeHabits = habitProvider.habits.where((h) => h.isActive).toList();
                           
-                          // Use the parent context for operations outside the dialog
-                          Navigator.of(dialogContext).pop(); // Close confirmation dialog
+                          if (activeHabits.isEmpty) {
+                            // No tasks to delete, warn the user
+                            Navigator.of(dialogContext).pop(); // Close confirmation dialog
+                            _showErrorPopup(
+                              context: context,
+                              title: 'NO TASKS TO ERASE',
+                              message: 'There are no active tasks or goals to erase. Purchase canceled.',
+                            );
+                            return;
+                          }
+                        }
+                        
+                        // Check if it's a Task Eraser - we'll handle it specially
+                        final isTaskEraser = reward.id == 'task_eraser';
+                        
+                        // Close the confirmation dialog first before processing purchase
+                        // This ensures we don't have dialog stacking issues
+                        Navigator.of(dialogContext).pop();
+                        
+                        // Process the purchase with special handling for Task Eraser
+                        final success = user.purchaseReward(
+                          reward,
+                          onTaskEraserPurchased: isTaskEraser ? () {
+                            // Show the task eraser dialog immediately
+                            _showTaskEraserDialog(context, reward);
+                          } : null
+                        );
+                        
+                        // The dialog is already closed above, before the purchase processing
 
-                          if (success) {
-                            // Get reward provider for state persistence
-                            final rewardProvider = Provider.of<RewardProvider>(context, listen: false);
-                            
-                            // Explicitly save user data first to ensure persistence
-                            await UserService.saveUser(user);
-                            
-                            // Add to inventory if it's a collectible item
-                            if (reward.isCollectible) {
-                              // Ensure the item is added to the inventory
-                              await inventoryProvider.addItem(reward);
-                            }
-                            
-                            // Sync inventory with user data
-                            await inventoryProvider.syncWithUser(user);
-                            
-                            // Explicitly save reward state in the dedicated provider for extra persistence
-                            await rewardProvider.saveRewardState(user);
-                            
-                            // Also update reward purchase tracking
-                            await rewardProvider.updateRewardPurchase(user, reward, true);
-                            
-                            // Refresh the statuses to handle any changes
-                            await rewardProvider.refreshRewardStatuses(user);
-                            
-                            // Save user again to ensure consistent state
-                            await UserService.saveUser(user);
-                            
-                            // Show success popup using the original build context
+                        if (success) {
+                          // Get reward provider for state persistence
+                          final rewardProvider = Provider.of<RewardProvider>(context, listen: false);
+                          
+                          // Explicitly save user data first to ensure persistence
+                          await UserService.saveUser(user);
+                          
+                          // Add to inventory if it's a collectible item (NOT for Task Eraser)
+                          if (reward.isCollectible) {
+                            // Ensure the item is added to the inventory
+                            await inventoryProvider.addItem(reward);
+                          } else if (!isTaskEraser) {
+                            // For non-Task Eraser consumables, add to inventory
+                            await inventoryProvider.addItem(reward);
+                          }
+                          
+                          // Sync inventory with user data
+                          await inventoryProvider.syncWithUser(user);
+                          
+                          // Explicitly save reward state in the dedicated provider for extra persistence
+                          await rewardProvider.saveRewardState(user);
+                          
+                          // Also update reward purchase tracking
+                          await rewardProvider.updateRewardPurchase(user, reward, true);
+                          
+                          // Refresh the statuses to handle any changes
+                          await rewardProvider.refreshRewardStatuses(user);
+                          
+                          // Save user again to ensure consistent state
+                          await UserService.saveUser(user);
+                          
+                          // Show success popup ONLY for non-Task Eraser rewards
+                          // Task Eraser will show its own dialog via the callback
+                          if (!isTaskEraser) {
                             _showConsumableItemPopup(context, reward);
+                          }
                           } else {
                             // Show error (e.g. if somehow became unaffordable or unavailable again)
                             // It's good practice to re-fetch status if the purchase failed for an unknown reason
@@ -1080,6 +1096,136 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Show task eraser dialog to select which task/goal/habit to delete
+  void _showTaskEraserDialog(BuildContext context, Reward reward) {
+    final habitProvider = Provider.of<HabitProvider>(context, listen: false);
+    final activeHabits = habitProvider.habits.where((h) => h.isActive).toList();
+    
+    if (activeHabits.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No active tasks or goals to erase')),
+      );
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.85,
+              minWidth: MediaQuery.of(context).size.width * 0.6,
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
+            ),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              image: const DecorationImage(
+                image: AssetImage(AppTheme.woodBackgroundPath),
+                fit: BoxFit.cover,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppTheme.darkWood,
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.5),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Select Task to Erase',
+                  style: AppTheme.pixelHeadingStyle,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Choose which task, goal or habit to delete:',
+                  style: AppTheme.pixelBodyStyle,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: activeHabits.length,
+                    itemBuilder: (context, index) {
+                      final habit = activeHabits[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        color: Colors.brown.withOpacity(0.7),
+                        child: ListTile(
+                          title: Text(
+                            habit.concisePromptTitle,
+                            style: AppTheme.pixelBodyStyle.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          subtitle: Text(
+                            habit.habitType == HabitType.goal ? 'Goal' : 'Habit',
+                            style: AppTheme.pixelBodyStyle.copyWith(
+                              fontSize: 12,
+                            ),
+                          ),
+                          trailing: PixelButton(
+                            width: 80,
+                            height: 36,
+                            backgroundColor: AppTheme.redHighlight,
+                            onPressed: () async {
+                              // Close the dialog
+                              Navigator.of(context).pop();
+                              
+                              // Delete the habit
+                              try {
+                                await habitProvider.removeHabit(habit.id);
+                                
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('"${habit.concisePromptTitle}" was erased successfully!')),
+                                );
+                              } catch (e) {
+                                print("Error erasing habit: $e");
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error erasing ${habit.habitType == HabitType.goal ? "goal" : "habit"}. Please try again.'),
+                                  ),
+                                );
+                              }
+                            },
+                            child: const Text('Erase'),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                PixelButton(
+                  width: 120,
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Cancel'),
+                ),
+              ],
             ),
           ),
         );
@@ -2043,113 +2189,6 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
-  }
-
-  // Confirmation Dialog for Deleting Habit/Goal
-  Future<void> _confirmAndDeleteHabit(BuildContext context, Habit habit) async {
-    final habitProvider = Provider.of<HabitProvider>(context, listen: false);
-
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      useSafeArea: true,
-      builder: (BuildContext dialogContext) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          child: SingleChildScrollView(
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.85,
-                minWidth: MediaQuery.of(context).size.width * 0.6,
-              ),
-              margin: const EdgeInsets.only(bottom: 40),
-              decoration: BoxDecoration(
-                image: const DecorationImage(
-                  image: AssetImage(AppTheme.woodBackgroundPath),
-                  fit: BoxFit.cover,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppTheme.darkWood,
-                  width: 3,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.5),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    'Delete ${habit.habitType == HabitType.goal ? "Goal" : "Habit"}?',
-                    style: AppTheme.pixelHeadingStyle,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Are you sure you want to delete "${habit.concisePromptTitle}"?\nThis action cannot be undone.',
-                    style: AppTheme.pixelBodyStyle,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      PixelButton(
-                        width: 120,
-                        onPressed: () {
-                          Navigator.of(dialogContext).pop(false);
-                        },
-                        child: const Text('Cancel'),
-                      ),
-                      PixelButton(
-                        width: 120,
-                        backgroundColor: AppTheme.redHighlight,
-                        onPressed: () {
-                          Navigator.of(dialogContext).pop(true);
-                        },
-                        child: const Text('Delete'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-
-    if (confirmed == true) {
-      try {
-        await habitProvider.removeHabit(habit.id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('"${habit.concisePromptTitle}" deleted.')),
-          );
-        }
-      } catch (e) {
-        print("Error deleting habit: $e");
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-                    'Error deleting ${habit.habitType == HabitType.goal ? "goal" : "habit"}. Please try again.')),
-          );
-        }
-      }
-    }
   }
 
   @override
