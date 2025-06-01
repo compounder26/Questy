@@ -18,6 +18,12 @@ class AttributeStats {
   AttributeLevel unityLevel;
   AttributeLevel powerLevel;
 
+  // Consumable effect tracking
+  double? _currencyMultiplier;
+  DateTime? _currencyMultiplierEndTime;
+  double? _focusModeMultiplier;
+  DateTime? _focusModeEndTime;
+
   AttributeStats({
     this.health = 0.0,
     this.intelligence = 0.0,
@@ -31,13 +37,87 @@ class AttributeStats {
     AttributeLevel? charismaLevel,
     AttributeLevel? unityLevel,
     AttributeLevel? powerLevel,
+    double? currencyMultiplier,
+    DateTime? currencyMultiplierEndTime,
+    double? focusModeMultiplier,
+    DateTime? focusModeEndTime,
   }) : 
     healthLevel = healthLevel ?? AttributeLevel.novice,
     intelligenceLevel = intelligenceLevel ?? AttributeLevel.novice,
     cleanlinessLevel = cleanlinessLevel ?? AttributeLevel.novice,
     charismaLevel = charismaLevel ?? AttributeLevel.novice,
     unityLevel = unityLevel ?? AttributeLevel.novice,
-    powerLevel = powerLevel ?? AttributeLevel.novice;
+    powerLevel = powerLevel ?? AttributeLevel.novice,
+    _currencyMultiplier = currencyMultiplier,
+    _currencyMultiplierEndTime = currencyMultiplierEndTime,
+    _focusModeMultiplier = focusModeMultiplier,
+    _focusModeEndTime = focusModeEndTime;
+
+  // Get current currency multiplier (1.0 if no active multiplier)
+  double get currencyMultiplier {
+    if (_currencyMultiplier == null || _currencyMultiplierEndTime == null) {
+      return 1.0;
+    }
+    if (DateTime.now().isAfter(_currencyMultiplierEndTime!)) {
+      _currencyMultiplier = null;
+      _currencyMultiplierEndTime = null;
+      return 1.0;
+    }
+    return _currencyMultiplier!;
+  }
+
+  // Get current focus mode multiplier (1.0 if not in focus mode)
+  double get focusModeMultiplier {
+    if (_focusModeMultiplier == null || _focusModeEndTime == null) {
+      return 1.0;
+    }
+    if (DateTime.now().isAfter(_focusModeEndTime!)) {
+      _focusModeMultiplier = null;
+      _focusModeEndTime = null;
+      return 1.0;
+    }
+    return _focusModeMultiplier!;
+  }
+
+  // Set currency multiplier effect
+  void setCurrencyMultiplier(double multiplier, int durationHours) {
+    _currencyMultiplier = multiplier;
+    _currencyMultiplierEndTime = DateTime.now().add(Duration(hours: durationHours));
+    print('Set currency multiplier to ${multiplier}x for ${durationHours} hours');
+  }
+
+  // Set focus mode effect
+  void setFocusModeMultiplier(double multiplier, int durationMinutes) {
+    _focusModeMultiplier = multiplier;
+    _focusModeEndTime = DateTime.now().add(Duration(minutes: durationMinutes));
+    print('Set focus mode multiplier to ${multiplier}x for ${durationMinutes} minutes');
+  }
+
+  // Check if currency multiplier is active
+  bool get isCurrencyMultiplierActive {
+    return _currencyMultiplier != null && 
+           _currencyMultiplierEndTime != null && 
+           DateTime.now().isBefore(_currencyMultiplierEndTime!);
+  }
+
+  // Check if focus mode is active
+  bool get isFocusModeActive {
+    return _focusModeMultiplier != null && 
+           _focusModeEndTime != null && 
+           DateTime.now().isBefore(_focusModeEndTime!);
+  }
+
+  // Get remaining time for currency multiplier in minutes
+  int? get currencyMultiplierRemainingMinutes {
+    if (!isCurrencyMultiplierActive) return null;
+    return _currencyMultiplierEndTime!.difference(DateTime.now()).inMinutes;
+  }
+
+  // Get remaining time for focus mode in minutes
+  int? get focusModeRemainingMinutes {
+    if (!isFocusModeActive) return null;
+    return _focusModeEndTime!.difference(DateTime.now()).inMinutes;
+  }
 
   // Get total stats value (useful for overall strength calculation)
   double get totalValue => health + intelligence + cleanliness + charisma + unity + power;
@@ -144,6 +224,10 @@ class AttributeStats {
       'charismaLevel': charismaLevel.index,
       'unityLevel': unityLevel.index,
       'powerLevel': powerLevel.index,
+      'currencyMultiplier': _currencyMultiplier,
+      'currencyMultiplierEndTime': _currencyMultiplierEndTime?.toIso8601String(),
+      'focusModeMultiplier': _focusModeMultiplier,
+      'focusModeEndTime': _focusModeEndTime?.toIso8601String(),
     };
   }
 
@@ -162,6 +246,14 @@ class AttributeStats {
       charismaLevel: AttributeLevel.values[json['charismaLevel'] ?? 0],
       unityLevel: AttributeLevel.values[json['unityLevel'] ?? 0],
       powerLevel: AttributeLevel.values[json['powerLevel'] ?? 0],
+      currencyMultiplier: json['currencyMultiplier'],
+      currencyMultiplierEndTime: json['currencyMultiplierEndTime'] != null 
+          ? DateTime.parse(json['currencyMultiplierEndTime']) 
+          : null,
+      focusModeMultiplier: json['focusModeMultiplier'],
+      focusModeEndTime: json['focusModeEndTime'] != null 
+          ? DateTime.parse(json['focusModeEndTime']) 
+          : null,
     );
   }
 }

@@ -239,7 +239,7 @@ class User extends ChangeNotifier {
       switch (reward.type) {
         case 'attribute_boost':
           final String? attribute = reward.effectData!['attribute'] as String?;
-          final double? amount = reward.effectData!['amount'] as double?;
+          final double? amount = (reward.effectData!['amount'] as num?)?.toDouble();
           if (attribute != null && amount != null) {
             increaseAttribute(attribute, amount);
           }
@@ -251,15 +251,32 @@ class User extends ChangeNotifier {
           }
           break;
         case 'task_eraser':
-          // Task Eraser should be used immediately upon purchase
           if (onTaskEraserPurchased != null) {
             onTaskEraserPurchased();
           }
           break;
-        // Add other effect types here if necessary
-        // case 'reward_multiplier':
-        // case 'daily_reset':
-        // case 'currency_multiplier':
+        case 'daily_reset':
+          // The actual reset is handled by the callback in the UI
+          if (onTaskEraserPurchased != null) {
+            onTaskEraserPurchased();
+          }
+          break;
+        case 'currency_multiplier':
+          final double? multiplier = (reward.effectData!['multiplier'] as num?)?.toDouble();
+          final int? duration = reward.effectData!['duration'] as int?;
+          if (multiplier != null && duration != null) {
+            print('Setting currency multiplier: ${multiplier}x for ${duration} hours');
+            attributeStats.setCurrencyMultiplier(multiplier, duration);
+          }
+          break;
+        case 'reward_multiplier':
+          final double? multiplier = (reward.effectData!['multiplier'] as num?)?.toDouble();
+          final int? duration = reward.effectData!['duration'] as int?;
+          if (multiplier != null && duration != null) {
+            print('Setting focus mode multiplier: ${multiplier}x for ${duration} hours');
+            attributeStats.setFocusModeMultiplier(multiplier, duration);
+          }
+          break;
       }
     }
   }

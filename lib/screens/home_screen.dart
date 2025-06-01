@@ -31,6 +31,7 @@ import '../widgets/cooldown_timer_widget.dart';
 import '../widgets/pixel_button.dart';
 import '../widgets/pixel_checkbox.dart';
 import '../widgets/character_display.dart';
+import '../widgets/active_effects_display.dart';
 
 // Utils
 import '../utils/string_extensions.dart';
@@ -609,7 +610,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           PixelCheckbox(
-                                            value: task.isCompleted,
+                                            value: task.isCompleted && onCooldown,
                                             // Disable onChanged only if task is on cooldown
                                             // For permanent habits, completed tasks can be verified again after cooldown
                                             onChanged: onCooldown
@@ -627,7 +628,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   task.description,
                                                   style: AppTheme.pixelBodyStyle
                                                       .copyWith(
-                                                    decoration: task.isCompleted
+                                                    decoration: task.isCompleted && onCooldown
                                                         ? TextDecoration
                                                             .lineThrough
                                                         : null,
@@ -1024,9 +1025,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         // Process the purchase with special handling for Task Eraser
                         final success = user.purchaseReward(
                           reward,
-                          onTaskEraserPurchased: isTaskEraser ? () {
+                          onTaskEraserPurchased: reward.id == 'task_eraser' ? () {
                             // Show the task eraser dialog immediately
                             _showTaskEraserDialog(context, reward);
+                          } : reward.id == 'daily_reset_ticket' ? () {
+                            // Handle daily reset ticket
+                            _resetDailyTasks(context);
                           } : null
                         );
                         
@@ -1039,17 +1043,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           // Explicitly save user data first to ensure persistence
                           await UserService.saveUser(user);
                           
-                          // Add to inventory if it's a collectible item (NOT for Task Eraser)
+                          // Add to inventory ONLY if it's a collectible item
                           if (reward.isCollectible) {
-                            // Ensure the item is added to the inventory
                             await inventoryProvider.addItem(reward);
-                          } else if (!isTaskEraser) {
-                            // For non-Task Eraser consumables, add to inventory
-                            await inventoryProvider.addItem(reward);
+                            await inventoryProvider.syncWithUser(user);
                           }
-                          
-                          // Sync inventory with user data
-                          await inventoryProvider.syncWithUser(user);
                           
                           // Explicitly save reward state in the dedicated provider for extra persistence
                           await rewardProvider.saveRewardState(user);
@@ -1063,24 +1061,23 @@ class _HomeScreenState extends State<HomeScreen> {
                           // Save user again to ensure consistent state
                           await UserService.saveUser(user);
                           
-                          // Show success popup ONLY for non-Task Eraser rewards
-                          // Task Eraser will show its own dialog via the callback
-                          if (!isTaskEraser) {
+                          // Show success popup for consumables
+                          if (!reward.isCollectible) {
                             _showConsumableItemPopup(context, reward);
                           }
-                          } else {
-                            // Show error (e.g. if somehow became unaffordable or unavailable again)
-                            // It's good practice to re-fetch status if the purchase failed for an unknown reason
-                            final latestStatus = user.consumableRewardStatus[reward.id];
-                            final latestIsOwned = user.ownedRewardIds.contains(reward.id);
-                            _showErrorPopup(
-                              context: context, // Use original build context for new popup
-                              title: 'PURCHASE FAILED',
-                              message: user.starCurrency < reward.cost 
-                                  ? 'You no longer have enough stars.' 
-                                  : reward.getAvailabilityTextForUser(latestStatus, latestIsOwned),
-                            );
-                          }
+                        } else {
+                          // Show error (e.g. if somehow became unaffordable or unavailable again)
+                          // It's good practice to re-fetch status if the purchase failed for an unknown reason
+                          final latestStatus = user.consumableRewardStatus[reward.id];
+                          final latestIsOwned = user.ownedRewardIds.contains(reward.id);
+                          _showErrorPopup(
+                            context: context, // Use original build context for new popup
+                            title: 'PURCHASE FAILED',
+                            message: user.starCurrency < reward.cost 
+                                ? 'You no longer have enough stars.' 
+                                : reward.getAvailabilityTextForUser(latestStatus, latestIsOwned),
+                          );
+                        }
                         },
                         backgroundColor: AppTheme.greenHighlight, // Changed from AppTheme.greenButton
                         child: const Text(
@@ -1719,8 +1716,29 @@ class _HomeScreenState extends State<HomeScreen> {
           task.expAwarded = expAwarded;
           // Initialize attributesAwarded map if it doesn't exist
           task.attributesAwarded = {};
-          user.addStarCurrency(starsAwarded);
-          user.addExp(expAwarded);
+
+          // Apply multipliers from consumables
+          double totalMultiplier = 1.0;
+          
+          // Apply currency multiplier if active
+          if (user.attributeStats.isCurrencyMultiplierActive) {
+            totalMultiplier *= user.attributeStats.currencyMultiplier;
+            print('Applying currency multiplier: ${user.attributeStats.currencyMultiplier}x');
+          }
+          
+          // Apply focus mode multiplier if active
+          if (user.attributeStats.isFocusModeActive) {
+            totalMultiplier *= user.attributeStats.focusModeMultiplier;
+            print('Applying focus mode multiplier: ${user.attributeStats.focusModeMultiplier}x');
+          }
+          
+          // Calculate final rewards with multipliers
+          int finalStarsAwarded = (starsAwarded * totalMultiplier).round();
+          int finalExpAwarded = (expAwarded * totalMultiplier).round();
+          
+          // Add the multiplied rewards
+          user.addStarCurrency(finalStarsAwarded);
+          user.addExp(finalExpAwarded);
 
           // Increase the appropriate attribute based on the AI suggestion or fallback to task analysis
           double attributeAmount = task.difficulty.toLowerCase() == 'easy'
@@ -1817,11 +1835,26 @@ class _HomeScreenState extends State<HomeScreen> {
           // Always call updateHabit to save task changes and potentially lastVerifiedTimestamp, lastUpdated etc.
           await habitProvider.updateHabit(parentHabit);
 
-          // Show Success Message
+          // Show Success Message with active effects
+          String message = 'Task verified! +$finalStarsAwarded stars and +$finalExpAwarded EXP.';
+          
+          // Add active consumable effects to the message
+          List<String> activeEffects = [];
+          if (user.attributeStats.isCurrencyMultiplierActive) {
+            int remainingMinutes = user.attributeStats.currencyMultiplierRemainingMinutes ?? 0;
+            activeEffects.add('Coin Doubler (${remainingMinutes}m remaining)');
+          }
+          if (user.attributeStats.isFocusModeActive) {
+            int remainingMinutes = user.attributeStats.focusModeRemainingMinutes ?? 0;
+            activeEffects.add('Focus Mode (${remainingMinutes}m remaining)');
+          }
+          
+          if (activeEffects.isNotEmpty) {
+            message += '\nActive effects: ${activeEffects.join(', ')}';
+          }
+          
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(
-                    'Task verified! +$starsAwarded stars and +$expAwarded EXP.')),
+            SnackBar(content: Text(message)),
           );
         } else {
           // Show rejection reason from AI in a popup dialog
@@ -2260,10 +2293,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     );
                   },
-                  child: CharacterDisplay(
-                    character: characterProvider.character,
-                    animate: _characterIsAnimating,
-                    background: characterProvider.selectedBackground,
+                  child: Stack(
+                    children: [
+                      CharacterDisplay(
+                        character: characterProvider.character,
+                        animate: _characterIsAnimating,
+                        background: characterProvider.selectedBackground,
+                      ),
+                      Positioned(
+                        left: 16,
+                        top: 16,
+                        child: Consumer<User>(
+                          builder: (context, user, child) {
+                            return ActiveEffectsDisplay(
+                              stats: user.attributeStats,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -2382,6 +2430,157 @@ class _HomeScreenState extends State<HomeScreen> {
                   backgroundColor: AppTheme.blueHighlight,
                   onPressed: () => Navigator.pop(context),
                   child: const Text('OK'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Add this new method to handle daily task reset
+  void _resetDailyTasks(BuildContext context) {
+    final habitProvider = Provider.of<HabitProvider>(context, listen: false);
+    final habits = habitProvider.habits.where((h) => 
+      h.recurrence == Recurrence.daily && 
+      h.isActive && 
+      h.cooldownDurationInMinutes != null &&
+      h.cooldownDurationInMinutes! > 0 &&
+      h.tasks.any((t) => t.lastVerifiedTimestamp != null)
+    ).toList();
+
+    if (habits.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No daily tasks with active cooldowns to reset.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // Show dialog to select which task's cooldown to reset
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.85,
+              minWidth: MediaQuery.of(context).size.width * 0.6,
+              maxHeight: MediaQuery.of(context).size.height * 0.7,
+            ),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              image: const DecorationImage(
+                image: AssetImage(AppTheme.woodBackgroundPath),
+                fit: BoxFit.cover,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppTheme.darkWood,
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.5),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Reset Task Cooldown',
+                  style: AppTheme.pixelHeadingStyle,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Choose which daily task\'s cooldown to reset:',
+                  style: AppTheme.pixelBodyStyle,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: habits.length,
+                    itemBuilder: (context, index) {
+                      final habit = habits[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        color: Colors.brown.withOpacity(0.7),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(
+                                habit.concisePromptTitle,
+                                style: AppTheme.pixelBodyStyle.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            ...habit.tasks.where((t) => t.lastVerifiedTimestamp != null).map((task) => 
+                              ListTile(
+                                title: Text(
+                                  task.description,
+                                  style: AppTheme.pixelBodyStyle,
+                                ),
+                                subtitle: Text(
+                                  'Cooldown: ${habit.cooldownDurationInMinutes} minutes',
+                                  style: AppTheme.pixelBodyStyle.copyWith(
+                                    fontSize: 12,
+                                    color: Colors.grey[300],
+                                  ),
+                                ),
+                                trailing: PixelButton(
+                                  width: 80,
+                                  height: 36,
+                                  backgroundColor: AppTheme.blueHighlight,
+                                  onPressed: () {
+                                    // Reset the cooldown by clearing the lastVerifiedTimestamp
+                                    task.lastVerifiedTimestamp = null;
+                                    habitProvider.updateHabit(habit);
+                                    
+                                    // Close the dialog
+                                    Navigator.of(context).pop();
+                                    
+                                    // Show success message
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Cooldown for "${task.description}" has been reset!'),
+                                        duration: const Duration(seconds: 3),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text('Reset'),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                PixelButton(
+                  width: 120,
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Cancel'),
                 ),
               ],
             ),

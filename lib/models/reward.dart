@@ -29,7 +29,7 @@ class Reward {
     }
 
     // For consumables without limits, always available
-    if (purchaseLimitPerPeriod == null) {
+    if (purchaseLimitPerPeriod == null || purchasePeriodHours == null) {
       print(
           'AVAILABILITY CHECK: ${name} (unlimited consumable) - always available');
       return true;
@@ -42,8 +42,8 @@ class Reward {
       return true;
     }
 
-    // Check cooldown for consumables with limits
-    if (status.cooldownStartTime != null && purchasePeriodHours != null) {
+    // Check if we're on cooldown
+    if (status.cooldownStartTime != null) {
       final cooldownEndTime =
           status.cooldownStartTime!.add(Duration(hours: purchasePeriodHours!));
       final now = DateTime.now();
@@ -62,7 +62,7 @@ class Reward {
       }
     }
 
-    // Check purchase count against limit
+    // If not on cooldown, check purchase count
     final underLimit = status.purchaseCount < purchaseLimitPerPeriod!;
     print(
         'AVAILABILITY CHECK: ${name} - count: ${status.purchaseCount}/${purchaseLimitPerPeriod}, available: $underLimit');
@@ -170,12 +170,12 @@ class Reward {
     Reward(
       id: 'daily_reset_ticket',
       name: 'Daily Reset Ticket',
-      description:
-          'Reset seluruh task harian (digunakan jika user ingin re-roll task)',
+      description: 'Reset the cooldown timer of a daily task so you can complete it again immediately',
       cost: 15,
       iconAsset: 'assets/images/Items/Consumables/ticket.png',
       isCollectible: false,
       type: 'daily_reset',
+      effectData: {'reset_type': 'cooldown'},
       purchaseLimitPerPeriod: 1,
       purchasePeriodHours: 24, // 1x per day
     ),
