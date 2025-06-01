@@ -426,14 +426,24 @@ class AIService {
             The system incorporates a leveling mechanism based on accumulated EXP.
             Level calculation: Level = 1 + (EXP / 100)²
 
-    Verify if the provided evidence (text description and/or image) truthfully indicates that the task was completed properly and meets the requirements.
-    Consider if the person is:
-    1. Being honest about their completion.
-    2. Actually completing the task properly according to the task description.
-    3. Not slacking or doing a minimal effort (unless the task itself is minimal).
-    4. If an image is provided, assess if it visually supports the task completion.
-
-    When determining which HICCUP attribute the task develops, carefully consider the nature of the task and match it to the most appropriate attribute.
+    VERIFICATION INSTRUCTIONS (IMPORTANT - FOLLOW THESE STRICTLY):
+    Critically assess if the provided evidence (text description and/or image) CONVINCINGLY demonstrates that the task was completed properly and meets ALL requirements.
+    
+    A task completion is ONLY valid if ALL of the following criteria are met:
+    1. The description provides SPECIFIC DETAILS about HOW the task was completed, not just that it was done
+    2. The user demonstrates understanding of the task's purpose and objectives
+    3. There is clear evidence of genuine effort appropriate to the task's difficulty level
+    4. The completion contains MEASURABLE outcomes or tangible results wherever applicable
+    5. If an image is provided, it must clearly show relevant evidence that aligns with the task description
+    
+    REJECT any completion that:
+    • Is excessively vague or generic (e.g., "I did it" or just repeating the task title)
+    • Lacks specific details about the completion process
+    • Appears insincere or shows minimal effort
+    • Contains inconsistencies between the task and claimed completion
+    • Does not provide concrete evidence of actual task completion
+    
+    When determining which HICCUP attribute the task develops, carefully analyze the exact nature of the task and match it to the most appropriate attribute based on the detailed descriptions provided earlier.
 
     Task Description: $taskDescription
     ''';
@@ -459,12 +469,12 @@ class AIService {
     parts.add({"text": '''
     Respond with ONLY a JSON object containing the following keys:
     - "isValid": boolean (true if the completion is valid, false otherwise)
-    - "reason": string (MUST provide a brief explanation ONLY if "isValid" is false, otherwise it should be null or an empty string)
+    - "reason": string (MUST provide a detailed explanation of WHY the completion is valid or invalid - this is REQUIRED for BOTH valid and invalid responses)
     - "suggestedAttribute": string (suggest which HICCUP attribute this task primarily develops based on task description)
     
     Do not use markdown code fences.
-    Example of valid response: {"isValid": true, "reason": null, "suggestedAttribute": "Health"}
-    Example of invalid response: {"isValid": false, "reason": "The description lacks detail about the specific steps taken.", "suggestedAttribute": "Intelligence"}
+    Example of valid response: {"isValid": true, "reason": "The user provided specific details about completing their 30-minute workout, including which exercises they performed, duration, and how they felt afterward. The image shows a completed workout tracker that matches the description.", "suggestedAttribute": "Power"}
+    Example of invalid response: {"isValid": false, "reason": "The description only restates the task title without providing any specific details about how the meditation was performed, for how long, or what techniques were used. There's no evidence of actual completion beyond claiming it was done.", "suggestedAttribute": "Unity"}
     '''.trim()});
 
 
@@ -504,13 +514,15 @@ class AIService {
                  final suggestedAttribute = decoded['suggestedAttribute'] as String?;
                  
                  if (reason == null || reason is String) {
-                    return {
-                        'isValid': decoded['isValid'],
-                        'reason': (decoded['isValid'] == false && (reason == null || reason.isEmpty)) 
-                                   ? 'AI rejected the completion but provided no specific reason.'
-                                   : reason,
-                        'suggestedAttribute': suggestedAttribute ?? 'Unity' // Default to Unity if no attribute suggested
-                    };
+                     return {
+                         'isValid': decoded['isValid'],
+                         'reason': (reason == null || reason.isEmpty) 
+                                    ? (decoded['isValid'] 
+                                       ? 'AI accepted the completion but provided no specific reason.'
+                                       : 'AI rejected the completion but provided no specific reason.')
+                                    : reason,
+                         'suggestedAttribute': suggestedAttribute ?? 'Unity' // Default to Unity if no attribute suggested
+                     };
                  }
               }
                print("Error: Decoded verification JSON has invalid structure or types.");
