@@ -610,7 +610,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           PixelCheckbox(
-                                            value: task.isCompleted && onCooldown,
+                                            value: task.isCompleted,
                                             // Disable onChanged only if task is on cooldown
                                             // For permanent habits, completed tasks can be verified again after cooldown
                                             onChanged: onCooldown
@@ -628,7 +628,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   task.description,
                                                   style: AppTheme.pixelBodyStyle
                                                       .copyWith(
-                                                    decoration: task.isCompleted && onCooldown
+                                                    decoration: task.isCompleted
                                                         ? TextDecoration
                                                             .lineThrough
                                                         : null,
@@ -2549,8 +2549,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   height: 36,
                                   backgroundColor: AppTheme.blueHighlight,
                                   onPressed: () {
-                                    // Reset the cooldown by clearing the lastVerifiedTimestamp
+                                    // Reset both the cooldown and completion status
                                     task.lastVerifiedTimestamp = null;
+                                    task.isCompleted = false;
                                     habitProvider.updateHabit(habit);
                                     
                                     // Close the dialog
