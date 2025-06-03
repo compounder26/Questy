@@ -465,19 +465,12 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: Consumer<HabitProvider>(
                 builder: (context, habitProvider, child) {
-                  // Filter for active habits/goals that are not completed
-                  final activeHabits = habitProvider.habits.where((h) {
-                    // Only show active habits
-                    if (!h.isActive) return false;
-
-                    // For goals, don't show completed ones
-                    if (h.habitType == HabitType.goal &&
-                        h.areAllTasksCompleted) {
-                      return false;
-                    }
-
-                    return true;
-                  }).toList();
+                  // Only get active habits and incomplete goals
+                  final activeHabits = habitProvider.habits.where((h) => 
+                    h.isActive &&
+                    (h.habitType == HabitType.habit || // Always show habits if active
+                     (h.habitType == HabitType.goal && !h.areAllTasksCompleted)) // Only show goals if not completed
+                  ).toList();
 
                   if (activeHabits.isEmpty) {
                     return const Center(
@@ -1103,11 +1096,43 @@ class _HomeScreenState extends State<HomeScreen> {
   // Show task eraser dialog to select which task/goal/habit to delete
   void _showTaskEraserDialog(BuildContext context, Reward reward) {
     final habitProvider = Provider.of<HabitProvider>(context, listen: false);
-    final activeHabits = habitProvider.habits.where((h) => h.isActive).toList();
+    // Only get active habits (exclude completed habits and completed goals)
+    final activeHabits = habitProvider.habits.where((h) => 
+      h.isActive && // Must be active (no end date or end date hasn't passed) 
+      (h.habitType == HabitType.habit || // Show habits
+       (h.habitType == HabitType.goal && !h.areAllTasksCompleted)) // Show goals only if not all tasks are completed
+    ).toList();
+
+    // Create a filtered list of habits with only incomplete tasks
+    final filteredHabits = activeHabits.map((habit) {
+      // Create a copy of the habit with only incomplete tasks
+      final incompleteTasks = habit.tasks.where((task) => 
+        !task.isNonHabitTask && // Exclude non-habit tasks
+        task.difficulty.toLowerCase() != 'hard' // Exclude hard difficulty tasks
+      ).toList();
+      
+      if (incompleteTasks.isEmpty) return null;
+      
+      // Return a new habit object with only incomplete tasks
+      return Habit(
+        id: habit.id,
+        description: habit.description,
+        concisePromptTitle: habit.concisePromptTitle,
+        tasks: incompleteTasks,
+        createdAt: habit.createdAt,
+        habitType: habit.habitType,
+        recurrence: habit.recurrence,
+        endDate: habit.endDate,
+        weeklyTarget: habit.weeklyTarget,
+        weeklyProgress: habit.weeklyProgress,
+        lastUpdated: habit.lastUpdated,
+        cooldownDurationInMinutes: habit.cooldownDurationInMinutes,
+      );
+    }).whereType<Habit>().toList();
     
-    if (activeHabits.isEmpty) {
+    if (filteredHabits.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No active tasks or goals to erase')),
+        const SnackBar(content: Text('No incomplete habits to erase')),
       );
       return;
     }
@@ -1150,13 +1175,13 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Select Task to Erase',
+                  'Select Habit to Erase',
                   style: AppTheme.pixelHeadingStyle,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Choose which task, goal or habit to delete:',
+                  'Choose which incomplete habit to delete:',
                   style: AppTheme.pixelBodyStyle,
                   textAlign: TextAlign.center,
                 ),
@@ -1164,51 +1189,67 @@ class _HomeScreenState extends State<HomeScreen> {
                 Flexible(
                   child: ListView.builder(
                     shrinkWrap: true,
-                    itemCount: activeHabits.length,
+                    itemCount: filteredHabits.length,
                     itemBuilder: (context, index) {
-                      final habit = activeHabits[index];
-                      return Card(
+                      final habit = filteredHabits[index];
+                      return Container(
                         margin: const EdgeInsets.only(bottom: 8),
-                        color: Colors.brown.withOpacity(0.7),
-                        child: ListTile(
-                          title: Text(
-                            habit.concisePromptTitle,
-                            style: AppTheme.pixelBodyStyle.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Text(
-                            habit.habitType == HabitType.goal ? 'Goal' : 'Habit',
-                            style: AppTheme.pixelBodyStyle.copyWith(
-                              fontSize: 12,
-                            ),
-                          ),
-                          trailing: PixelButton(
-                            width: 80,
-                            height: 36,
-                            backgroundColor: AppTheme.redHighlight,
-                            onPressed: () async {
-                              // Close the dialog
-                              Navigator.of(context).pop();
-                              
-                              // Delete the habit
-                              try {
-                                await habitProvider.removeHabit(habit.id);
-                                
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('"${habit.concisePromptTitle}" was erased successfully!')),
-                                );
-                              } catch (e) {
-                                print("Error erasing habit: $e");
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error erasing ${habit.habitType == HabitType.goal ? "goal" : "habit"}. Please try again.'),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.brown.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.brown.shade800),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    habit.concisePromptTitle,
+                                    style: AppTheme.pixelBodyStyle.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                );
-                              }
-                            },
-                            child: const Text('Erase'),
-                          ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${habit.habitType.toString().split('.').last.toUpperCase()} ${habit.recurrence.toString().split('.').last.toUpperCase()}',
+                                    style: AppTheme.pixelBodyStyle.copyWith(
+                                      fontSize: 12,
+                                      color: Colors.grey[300],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            PixelButton(
+                              width: 80,
+                              height: 36,
+                              backgroundColor: AppTheme.redHighlight,
+                              onPressed: () async {
+                                // Close the dialog
+                                Navigator.of(context).pop();
+                                
+                                // Delete the habit
+                                try {
+                                  await habitProvider.removeHabit(habit.id);
+                                  
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('"${habit.concisePromptTitle}" was erased successfully!')),
+                                  );
+                                } catch (e) {
+                                  print("Error erasing habit: $e");
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Error erasing habit. Please try again.'),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: const Text('Erase'),
+                            ),
+                          ],
                         ),
                       );
                     },
@@ -1688,6 +1729,11 @@ class _HomeScreenState extends State<HomeScreen> {
           // Mark task complete & Award Stars and EXP
           task.isCompleted = true;
           task.lastCompletedDate = DateTime.now();
+
+          // If this is a non-habit task, mark it as such
+          if (parentHabit.habitType != HabitType.habit) {
+            task.isNonHabitTask = true;
+          }
 
           // Award stars and EXP based on difficulty
           int starsAwarded = 0;

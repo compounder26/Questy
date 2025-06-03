@@ -69,11 +69,18 @@ class CharacterProvider extends ChangeNotifier {
   // Initialize preferences - call in main or app startup
   Future<void> loadPreferences() async {
     try {
-      // For character data, we'll use Hive once adapters are generated
-      // For now, we'll just initialize with defaults and store background ID separately
-      
-      // Get background preference (this doesn't require an adapter)
+      // Get character preferences
       final prefs = Hive.box('preferences');
+      final genderIndex = prefs.get('character_gender', defaultValue: 0) as int;
+      final variant = prefs.get('character_variant', defaultValue: 1) as int;
+      
+      // Set character data
+      _character = Character(
+        gender: Gender.values[genderIndex],
+        variant: variant,
+      );
+      
+      // Get background preference
       final backgroundId = prefs.get('background_id', defaultValue: 1) as int;
       _backgroundId = backgroundId;
       
@@ -91,8 +98,13 @@ class CharacterProvider extends ChangeNotifier {
 
   // Save character preferences
   Future<void> _saveCharacterPreferences() async {
-    // Character model will use Hive adapters once generated
-    // We'll implement this once the adapters are available
+    try {
+      final prefs = await Hive.openBox('preferences');
+      await prefs.put('character_gender', _character.gender.index);
+      await prefs.put('character_variant', _character.variant);
+    } catch (e) {
+      print('Error saving character preferences: $e');
+    }
   }
   
   // Save background preferences

@@ -4,8 +4,10 @@ import '../providers/inventory_provider.dart';
 import '../providers/habit_provider.dart'; // Needed for habit deletion
 import '../models/inventory_item.dart';
 import '../models/enums/habit_type.dart'; // Import for HabitType enum
+import '../models/habit.dart'; // Add import for Habit model
 import '../theme/app_theme.dart';
 import '../widgets/pixel_button.dart';
+import '../utils/string_extensions.dart'; // Add import for string extensions
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({Key? key}) : super(key: key);
@@ -293,11 +295,46 @@ class _InventoryScreenState extends State<InventoryScreen> {
   void _showTaskEraserDialog(BuildContext context, InventoryItem item) {
     final habitProvider = Provider.of<HabitProvider>(context, listen: false);
     final inventoryProvider = Provider.of<InventoryProvider>(context, listen: false);
-    final activeHabits = habitProvider.habits.where((h) => h.isActive).toList();
     
-    if (activeHabits.isEmpty) {
+    // Only get active habits (exclude completed habits and completed goals)
+    final activeHabits = habitProvider.habits.where((h) => 
+      h.isActive && // Must be active (no end date or end date hasn't passed)
+      !h.areAllTasksCompleted && // Exclude completed habits
+      (h.habitType == HabitType.habit || // Show habits
+       (h.habitType == HabitType.goal && !h.areAllTasksCompleted)) // Show goals only if not all tasks are completed
+    ).toList();
+
+    // Create a filtered list of habits with only incomplete tasks
+    final filteredHabits = activeHabits.map((habit) {
+      // Create a copy of the habit with only incomplete tasks
+      final incompleteTasks = habit.tasks.where((task) => 
+        !task.isNonHabitTask && // Exclude non-habit tasks
+        !task.isCompleted && // Exclude completed tasks
+        task.difficulty.toLowerCase() != 'hard' // Exclude hard difficulty tasks
+      ).toList();
+      
+      if (incompleteTasks.isEmpty) return null;
+      
+      // Return a new habit object with only incomplete tasks
+      return Habit(
+        id: habit.id,
+        description: habit.description,
+        concisePromptTitle: habit.concisePromptTitle,
+        tasks: incompleteTasks,
+        createdAt: habit.createdAt,
+        habitType: habit.habitType,
+        recurrence: habit.recurrence,
+        endDate: habit.endDate,
+        weeklyTarget: habit.weeklyTarget,
+        weeklyProgress: habit.weeklyProgress,
+        lastUpdated: habit.lastUpdated,
+        cooldownDurationInMinutes: habit.cooldownDurationInMinutes,
+      );
+    }).whereType<Habit>().toList();
+    
+    if (filteredHabits.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No active tasks or goals to erase')),
+        const SnackBar(content: Text('No incomplete habits to erase')),
       );
       return;
     }
@@ -340,13 +377,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Select Task to Erase',
+                  'Select Habit to Erase',
                   style: AppTheme.pixelHeadingStyle,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Choose which task, goal or habit to delete:',
+                  'Choose which incomplete habit to delete:',
                   style: AppTheme.pixelBodyStyle,
                   textAlign: TextAlign.center,
                 ),
@@ -354,54 +391,70 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 Flexible(
                   child: ListView.builder(
                     shrinkWrap: true,
-                    itemCount: activeHabits.length,
+                    itemCount: filteredHabits.length,
                     itemBuilder: (context, index) {
-                      final habit = activeHabits[index];
-                      return Card(
+                      final habit = filteredHabits[index];
+                      return Container(
                         margin: const EdgeInsets.only(bottom: 8),
-                        color: Colors.brown.withOpacity(0.7),
-                        child: ListTile(
-                          title: Text(
-                            habit.concisePromptTitle,
-                            style: AppTheme.pixelBodyStyle.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Text(
-                            habit.habitType == HabitType.goal ? 'Goal' : 'Habit',
-                            style: AppTheme.pixelBodyStyle.copyWith(
-                              fontSize: 12,
-                            ),
-                          ),
-                          trailing: PixelButton(
-                            width: 80,
-                            height: 36,
-                            backgroundColor: AppTheme.redHighlight,
-                            onPressed: () async {
-                              // Close the dialog
-                              Navigator.of(context).pop();
-                              
-                              // Delete the habit
-                              try {
-                                await habitProvider.removeHabit(habit.id);
-                                
-                                // Remove the item from inventory after use
-                                await inventoryProvider.removeItem(item.id);
-                                
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('"${habit.concisePromptTitle}" was erased successfully!')),
-                                );
-                              } catch (e) {
-                                print("Error erasing habit: $e");
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error erasing ${habit.habitType == HabitType.goal ? "goal" : "habit"}. Please try again.'),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.brown.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.brown.shade800),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    habit.concisePromptTitle,
+                                    style: AppTheme.pixelBodyStyle.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                );
-                              }
-                            },
-                            child: const Text('Erase'),
-                          ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${habit.habitType.toString().split('.').last.toUpperCase()} ${habit.recurrence.toString().split('.').last.toUpperCase()}',
+                                    style: AppTheme.pixelBodyStyle.copyWith(
+                                      fontSize: 12,
+                                      color: Colors.grey[300],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            PixelButton(
+                              width: 80,
+                              height: 36,
+                              backgroundColor: AppTheme.redHighlight,
+                              onPressed: () async {
+                                // Close the dialog
+                                Navigator.of(context).pop();
+                                
+                                // Delete the habit
+                                try {
+                                  await habitProvider.removeHabit(habit.id);
+                                  
+                                  // Remove the item from inventory after use
+                                  await inventoryProvider.removeItem(item.id);
+                                  
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('"${habit.concisePromptTitle}" was erased successfully!')),
+                                  );
+                                } catch (e) {
+                                  print("Error erasing habit: $e");
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Error erasing habit. Please try again.'),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: const Text('Erase'),
+                            ),
+                          ],
                         ),
                       );
                     },

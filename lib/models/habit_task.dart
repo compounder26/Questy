@@ -46,6 +46,8 @@ class HabitTask extends HiveObject { // Extend HiveObject
   Map<String, double>? attributesAwarded; // Map of attribute name to amount
   @HiveField(9)
   DateTime? lastVerifiedTimestamp; // For per-task cooldown tracking
+  @HiveField(10)
+  bool isNonHabitTask; // New field to track if this is a non-habit task
 
   HabitTask({
     required this.id,
@@ -58,6 +60,7 @@ class HabitTask extends HiveObject { // Extend HiveObject
     this.expAwarded,
     this.attributesAwarded,
     this.lastVerifiedTimestamp,
+    this.isNonHabitTask = false, // Default to false
   });
   
   // Helper method to get attribute changes as a list

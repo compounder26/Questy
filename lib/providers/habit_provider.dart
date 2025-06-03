@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/habit.dart';
 import '../models/enums/recurrence.dart';
 import 'package:hive/hive.dart'; // Import Hive
+import '../models/enums/habit_type.dart'; // Add import for HabitType enum
 
 // Helper function to check if two dates fall within the same week (assuming week starts on Monday)
 bool _isSameWeek(DateTime date1, DateTime date2) {
@@ -28,11 +29,13 @@ bool _isSameDay(DateTime date1, DateTime date2) {
 class HabitProvider extends ChangeNotifier {
   // Use late final for the box to ensure it's opened before use
   late final Box<Habit> _habitBox;
+  late final Box<Habit> _archivedHabitBox; // New box for archived habits
   List<Habit> _habits = []; // Keep the in-memory list
 
   HabitProvider() {
     // Initialize box reference - Box should be open already from main.dart
     _habitBox = Hive.box<Habit>('habits');
+    _archivedHabitBox = Hive.box<Habit>('archived_habits'); // Open archived habits box
   }
 
   List<Habit> get habits {
@@ -146,14 +149,18 @@ class HabitProvider extends ChangeNotifier {
     final index = _habits.indexWhere((h) => h.id == habit.id);
     if (index != -1) {
       habit.lastUpdated = DateTime.now();
-      _habits[index] = habit; // Update in-memory list
-      // If using HiveObject.save(), could do: await _habits[index].save();
-      await _saveHabits(); // Save the updated list to Hive
+      // Only archive and remove if this is a goal and all tasks are completed
+      if (habit.habitType == HabitType.goal && habit.areAllTasksCompleted) {
+        await _archivedHabitBox.put(habit.id, habit); // Archive the completed goal
+        _habits.removeAt(index);
+        print('Goal "${habit.concisePromptTitle}" completed, archived, and removed from active habits.');
+      } else {
+        _habits[index] = habit; // Update in-memory list
+      }
+      await _saveHabits();
       notifyListeners();
     } else {
-       print("Attempted to update non-existent habit with id: ${habit.id}");
-       // Optionally add it if it doesn't exist?
-       // await addHabit(habit);
+      print("Attempted to update non-existent habit with id: "+ habit.id);
     }
   }
 

@@ -151,8 +151,8 @@ class Reward {
       isCollectible: false,
       type: 'task_eraser',
       effectData: {'removeCount': 1},
-      purchaseLimitPerPeriod: 1,
-      purchasePeriodHours: 24, // 2x per day
+      purchaseLimitPerPeriod: 2,
+      purchasePeriodHours: 0, // 2x per day
     ),
     Reward(
       id: 'focus_booster',
@@ -189,7 +189,7 @@ class Reward {
       type: 'currency_multiplier',
       effectData: {'multiplier': 2, 'duration': 3}, // 3 hours
       purchaseLimitPerPeriod: 1,
-      purchasePeriodHours: 24, // 1x per day
+      purchasePeriodHours: 3, // 1x per day
     ),
 
     // Collectible rewards (can only be purchased once)

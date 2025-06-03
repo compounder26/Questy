@@ -57,6 +57,7 @@ Future<void> main() async {
 
   // Open Boxes
   await Hive.openBox<Habit>('habits'); // Open the box for Habits
+  await Hive.openBox<Habit>('archived_habits');
   await Hive.openBox('preferences'); // Open the box for preferences
   await Hive.openBox<InventoryItem>(
       'inventory'); // Open the box for inventory items

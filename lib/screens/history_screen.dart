@@ -7,6 +7,7 @@ import '../models/habit_task.dart';
 import '../utils/string_extensions.dart';
 import '../models/user.dart'; // Added for User and PurchaseHistoryItem
 import '../models/habit.dart'; // Ensure Habit is imported for type checking
+import 'package:hive/hive.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -44,14 +45,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final habitProvider = Provider.of<HabitProvider>(context);
     final user = Provider.of<User>(context); // Get User object, assumes User is provided directly
     // Get all habits, then filter for inactive/completed ones
-    // A habit is considered historical if it's inactive OR if it's a goal and all its tasks are completed
+    // Only completed goals or inactive habits are historical
     final historicalHabits = habitProvider.habits.where((habit) {
-      bool isHistorical = !habit.isActive; // Inactive habits are historical
       if (habit.habitType == HabitType.goal && habit.areAllTasksCompleted) {
-        isHistorical = true; // Completed goals are historical
+        return true;
       }
-      return isHistorical;
+      if (habit.habitType == HabitType.habit && !habit.isActive) {
+        return true;
+      }
+      return false;
     }).toList();
+
+    // Load archived habits from Hive
+    final archivedHabitBox = Hive.box<Habit>('archived_habits');
+    final archivedHabits = archivedHabitBox.values.toList();
 
     // Get purchase history
     final purchaseHistory = user.purchaseHistory;
@@ -59,6 +66,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     // Combine and sort history items
     List<dynamic> combinedHistory = [];
     combinedHistory.addAll(historicalHabits);
+    combinedHistory.addAll(archivedHabits);
     combinedHistory.addAll(purchaseHistory);
 
     combinedHistory.sort((a, b) {

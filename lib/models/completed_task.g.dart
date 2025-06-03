@@ -1,40 +1,39 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'habit_task.dart';
+part of 'completed_task.dart';
 
 // **************************************************************************
 // TypeAdapterGenerator
 // **************************************************************************
 
-class HabitTaskAdapter extends TypeAdapter<HabitTask> {
+class CompletedTaskAdapter extends TypeAdapter<CompletedTask> {
   @override
-  final int typeId = 3;
+  final int typeId = 4;
 
   @override
-  HabitTask read(BinaryReader reader) {
+  CompletedTask read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return HabitTask(
+    return CompletedTask(
       id: fields[0] as String,
       description: fields[1] as String,
       difficulty: fields[2] as String,
       estimatedTimeMinutes: fields[3] as int,
-      isCompleted: fields[4] as bool,
-      lastCompletedDate: fields[5] as DateTime?,
-      pointsAwarded: fields[6] as int?,
-      expAwarded: fields[7] as int?,
-      attributesAwarded: (fields[8] as Map?)?.cast<String, double>(),
-      lastVerifiedTimestamp: fields[9] as DateTime?,
-      isNonHabitTask: fields[10] as bool,
+      completionDate: fields[4] as DateTime,
+      pointsAwarded: fields[5] as int?,
+      expAwarded: fields[6] as int?,
+      attributesAwarded: (fields[7] as Map?)?.cast<String, double>(),
+      parentHabitId: fields[8] as String,
+      parentHabitTitle: fields[9] as String,
     );
   }
 
   @override
-  void write(BinaryWriter writer, HabitTask obj) {
+  void write(BinaryWriter writer, CompletedTask obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -44,19 +43,17 @@ class HabitTaskAdapter extends TypeAdapter<HabitTask> {
       ..writeByte(3)
       ..write(obj.estimatedTimeMinutes)
       ..writeByte(4)
-      ..write(obj.isCompleted)
+      ..write(obj.completionDate)
       ..writeByte(5)
-      ..write(obj.lastCompletedDate)
-      ..writeByte(6)
       ..write(obj.pointsAwarded)
-      ..writeByte(7)
+      ..writeByte(6)
       ..write(obj.expAwarded)
-      ..writeByte(8)
+      ..writeByte(7)
       ..write(obj.attributesAwarded)
+      ..writeByte(8)
+      ..write(obj.parentHabitId)
       ..writeByte(9)
-      ..write(obj.lastVerifiedTimestamp)
-      ..writeByte(10)
-      ..write(obj.isNonHabitTask);
+      ..write(obj.parentHabitTitle);
   }
 
   @override
@@ -65,7 +62,7 @@ class HabitTaskAdapter extends TypeAdapter<HabitTask> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is HabitTaskAdapter &&
+      other is CompletedTaskAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }
