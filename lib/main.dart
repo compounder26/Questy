@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'services/ai_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/inventory_screen.dart';
-import 'services/ai_service.dart';
 import 'models/user.dart';
 import 'models/attribute_stats.dart';
 import 'models/reward_persistence.dart'; // Import our new dedicated persistence system
@@ -27,6 +29,19 @@ import 'utils/env_config.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Initialize Firebase and AIService
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('Firebase initialized successfully');
+    
+    // AIService is now initialized via Provider, no local instance needed here.
+
+  } catch (e) {
+    print('Failed to initialize Firebase or AIService: $e');
+  }
+
   // Initialize environment configuration
   try {
     await EnvConfig.initialize();

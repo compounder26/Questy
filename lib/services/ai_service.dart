@@ -1,85 +1,90 @@
 import 'dart:convert';
-// For File operations - will be replaced by services for asset loading
 import 'dart:typed_data';
-import 'package:flutter/services.dart' show rootBundle; // Import for rootBundle
-import 'package:googleapis_auth/auth_io.dart' as auth;
-import '../utils/api_config_bridge.dart';
-// Removed: import '../models/enums/habit_type.dart';
-// Removed: import '../models/enums/recurrence.dart';
-// These enums are used by the app's internal models, not directly by the AI service prompts in this version.
+import 'package:cloud_functions/cloud_functions.dart';
+// Removed: import 'package:flutter/services.dart' show rootBundle; // No longer needed for service account
+// Removed: import 'package:googleapis_auth/auth_io.dart' as auth; // No longer needed
+// Removed: import '../utils/api_config_bridge.dart'; // No longer needed
+
+// Note: Enums like HabitType, Recurrence are not directly used in this service's prompts
+// but are part of the broader application logic that consumes this service's output.
 
 class AIService {
-  final String _projectId = ApiConfig.vertexProjectId;
-  final String _region = ApiConfig.vertexRegion;
-  final String _serviceAccountKeyPath = ApiConfig.vertexServiceAccountKeyPath;
-  
-  auth.AutoRefreshingAuthClient? _authClient;
+  // Initialize Firebase Functions, targeting the region of your 'chatWithGemini' function
+  final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(
+      region:
+          'us-central1'); // Ensure this matches your Firebase function region
 
-  // Model name - consider gemini-1.5-pro-latest for robust JSON and general tasks
-  // or specific versions like gemini-1.5-flash-latest if speed/cost is a bigger concern.
-  // gemini-2.5-pro might require specific endpoint or preview access.
-  // For Gemini 2.5 Flash, verify the exact model ID in Vertex AI Model Garden for your region.
-  // Example: 'gemini-2.5-flash-preview', 'gemini-2.5-flash-latest', or a specific versioned ID.
-  // Using 'gemini-1.5-flash-latest' as a known available and capable Flash model.
-  // Please update if you find a specific '2.5-flash' variant you want to use.
-  final String _modelName = 'gemini-2.0-flash'; // Using the ID from the provided documentation
+  // The model name is now managed by the Firebase function ('gemini-2.0-flash' as per functions/index.js)
 
   AIService() {
-    // Initialization of auth client is now async
+    // No async initialization needed here anymore
   }
 
-  Future<void> _initialize() async {
-    if (_authClient != null) return;
+  Future<Map<String, dynamic>?> _callFirebaseGemini(
+      List<Map<String, dynamic>> parts,
+      {required String callingFunctionName}) async {
+    try {
+      print(
+          "[$callingFunctionName] Calling Firebase function 'chatWithGemini' with ${parts.length} parts.");
+      final HttpsCallable callable = _functions.httpsCallable('chatWithGemini');
+      print(
+          "[$callingFunctionName] Sending to Firebase 'chatWithGemini'. Parts: ${jsonEncode(parts)}");
+      final HttpsCallableResult result = await callable.call({'parts': parts});
 
-    // List of possible paths to try for the service account key
-    final possiblePaths = [
-      ApiConfig.vertexServiceAccountKeyPath,
-      'assets/vertex_ai_credentials.json'
-    ];
-    
-    String? errorMessages;
-    
-    // Try each path until we find one that works
-    for (final path in possiblePaths) {
-      try {
-        // Load the service account key from Flutter's asset bundle
-        final String content = await rootBundle.loadString(path);
-        final credentials = auth.ServiceAccountCredentials.fromJson(jsonDecode(content));
-        final scopes = ['https://www.googleapis.com/auth/cloud-platform'];
-        _authClient = await auth.clientViaServiceAccount(credentials, scopes);
-        print("Vertex AI Service Account authenticated successfully from: $path");
-        return; // Successfully initialized, exit the method
-      } catch (e, stacktrace) {
-        final errorMessage = "Error loading credentials from $path: $e\nStacktrace: $stacktrace";
-        print(errorMessage);
-        errorMessages = (errorMessages ?? '') + '\n' + errorMessage;
-        // Continue to the next path
+      print(
+          "[$callingFunctionName] Firebase function response raw data: ${result.data}");
+
+      if (result.data != null &&
+          result.data['success'] == true &&
+          result.data['message'] != null) {
+        // The 'message' from Firebase should be the direct JSON object from Gemini
+        if (result.data['message'] is Map) { // More general Map check
+          try {
+            // Attempt to cast to Map<String, dynamic>
+            return Map<String, dynamic>.from(result.data['message'] as Map);
+          } catch (e) {
+            print("[$callingFunctionName] Error casting 'message' from Map to Map<String, dynamic>: $e");
+            return null;
+          }
+        } else if (result.data['message'] is String) {
+          // If it's a string, try to parse it (though Firebase function should return object)
+          try {
+            return jsonDecode(result.data['message']) as Map<String, dynamic>;
+          } catch (e) {
+            print(
+                "[$callingFunctionName] Error decoding 'message' string from Firebase: $e. Message was: ${result.data['message']}");
+            return null;
+          }
+        } else {
+          print(
+              "[$callingFunctionName] Firebase function 'message' is not a Map or String: ${result.data['message'].runtimeType}");
+          return null;
+        }
+      } else {
+        String? errorMessage = result.data?['message']?.toString();
+        print(
+            "[$callingFunctionName] Firebase function call was not successful or 'message' is missing. Success: ${result.data?['success']}, Message: $errorMessage");
+        return null; // Or throw an exception based on how you want to handle this
       }
+    } on FirebaseFunctionsException catch (e) {
+      print(
+          "[$callingFunctionName] FirebaseFunctionsException: ${e.code} - ${e.message}");
+      print("Details: ${e.details}");
+      return null;
+    } catch (e, stacktrace) {
+      print(
+          "[$callingFunctionName] Generic error calling Firebase function: $e");
+      print("Stacktrace: $stacktrace");
+      return null;
     }
-    
-    // If we got here, all paths failed
-    final error = "Failed to initialize Vertex AI auth from any location.\n$errorMessages";
-    print(error);
-    throw Exception(error);
   }
 
   Future<Map<String, dynamic>?> breakDownHabit(String habitDescription) async {
-    await _initialize(); // Ensure client is initialized
-    if (_authClient == null) {
-      print("Error: Auth client not initialized for breakDownHabit.");
-      return null;
-    }
-
-    // Note: Using gemini-1.5-pro-latest or similar. For "gemini-2.5-pro", ensure it's available
-    // and the model ID is correct (e.g., publishers/google/models/gemini-2.5-pro)
-    final url = Uri.parse(
-        'https://$_region-aiplatform.googleapis.com/v1/projects/$_projectId/locations/$_region/publishers/google/models/$_modelName:generateContent');
-
     final prompt = '''
     System Prompt: Gamified Self-Improvement Framework
 
     I. Overview:
-    You are to understand and operate within a gamified self-improvement system designed to help users develop positive habits and track their progress. The system revolves around completing tasks that enhance specific character attributes, earn experience points (EXP) for leveling, and accumulate Star Currency for in-system purchases. The core principle is to reflect real-world progress in a gradual and fair manner.
+    You are to understand and operate within a gamified self-improvement system designed to help users develop positive habits and track their progress. The system revolves around creating structured tasks, assigning them to relevant character attributes, and defining their difficulty and recurrence. The core principle is to reflect real-world progress in a gradual and fair manner.
 
     II. Core Character Attributes (Stats):
     Users will earn points for the following attributes based on the tasks they complete. The mnemonic for these attributes is HICCUP.
@@ -87,250 +92,102 @@ class AIService {
         Health (H)
             Description: Reflects the user's physical well-being and healthy lifestyle choices. This attribute increases when the user completes tasks related to maintaining physical health, such as proper diet, adequate sleep, and light fitness activities focused on upkeep rather than building muscle or strength.
             Goal: To foster sustainable healthy living habits.
-            Example Tasks & Points:
-                Drink 1 glass of water (Easy): +0.5 Health Points
-                Sleep for at least 7 hours (Easy): +0.5 Health Points
-                Consume fruits/vegetables today (Medium): +1 Health Point
-                Avoid junk food for the entire day (Medium): +1 Health Point
-                Consult a doctor / undergo a light medical check-up (Hard): +2 Health Points
 
         Intelligence (I)
             Description: Reflects the user's development of knowledge and skills. This attribute increases when the user engages in activities such as learning, reading, attending classes, or writing.
             Focus: Intellectual growth and self-development.
-            Example Tasks & Points:
-                Read an educational article (Easy): +0.5 Intelligence Points
-                Watch a 10-minute educational video (Easy): +0.5 Intelligence Points
-                Attend a 1-hour webinar/online course (Medium): +1 Intelligence Point
-                Create a summary of study material (Medium): +1 Intelligence Point
-                Complete a new learning module (Hard): +2 Intelligence Points
 
         Cleanliness (C)
             Description: Measures the user's discipline in maintaining personal hygiene and environmental tidiness. Points are gained from activities like cleaning the house, doing laundry, or practicing neat personal habits.
             Association: Cleanliness is associated with peace of mind and an orderly life.
-            Example Tasks & Points:
-                Take a bath/shower (Easy): +0.5 Cleanliness Points
-                Wash dishes after a meal (Easy): +0.5 Cleanliness Points
-                Clean the bathroom (Medium): +1 Cleanliness Point
-                Organize a wardrobe (Medium): +1 Cleanliness Point
-                Thoroughly clean a room (Hard): +2 Cleanliness Points
 
         Charisma (C)
             Description: Represents the user's social interaction skills, self-confidence, and presence as perceived by others. This stat increases through activities involving communication, teamwork, or public speaking.
             Suitability: Ideal for building connections and interpersonal skills.
-            Example Tasks & Points:
-                Give someone a compliment (Easy): +0.5 Charisma Points
-                Greet a friend/colleague warmly (Easy): +0.5 Charisma Points
-                Actively participate in a group discussion (Medium): +1 Charisma Point
-                Voluntarily help someone (Medium): +1 Charisma Point
-                Give a presentation in public (Hard): +2 Charisma Points
 
         Unity (U)
             Description: Represents the user's inner state, mental well-being, and peace. This stat increases through activities such as meditation, journaling, taking breaks from social media, or spiritual practices.
             Goal: Helps the user maintain stable mental health and life focus.
-            Example Tasks & Points:
-                Write down 3 things you are grateful for today (Easy): +0.5 Unity Points
-                Meditate or pray for 5 minutes (Easy): +0.5 Unity Points
-                Journal emotions or reflections for the day (Medium): +1 Unity Point
-                Stay offline from social media for 6 hours (Medium): +1 Unity Point
-                Complete a full-day digital detox (no social media at all) (Hard): +2 Unity Points
 
         Power (P)
             Description: Focuses on the user's physical strength, stamina, and energy. This stat increases when the user performs active physical tasks like sports, workouts, or strenuous activities.
             Emphasis: Physical development and training discipline.
-            Example Tasks & Points:
-                Stretch for 3 minutes (Easy): +0.5 Power Points
-                Perform 20 push-ups/squats (Easy): +0.5 Power Points
-                Go for a 15-minute jog or light workout (Medium): +1 Power Point
-                Attend an exercise class (yoga/gym) (Medium): +1 Power Point
-                Engage in intense exercise like a 5km run / 1-hour futsal game (Hard): +2 Power Points
 
-    III. Reward System Mechanics:
-    The reward system integrates character stats (HICCUP), Experience Points (EXP), and leveling.
+    III. Task Breakdown Instructions:
+    Given a user's habit description, break it down into 3-5 actionable, specific, and measurable tasks. For each task:
+    1.  Define a clear "taskName".
+    2.  Suggest a "taskDescription" that elaborates on how to perform the task.
+    3.  Determine the primary "taskAttribute" from HICCUP that this task develops.
+    4.  Assign a "taskDifficulty" (Easy, Medium, Hard).
+    5.  Suggest a "taskRecurrence" (Daily, Weekly, Monthly, Once).
 
-        Stat Point Allocation:
-            Upon task completion, the character receives points for the specific attribute associated with that task (as detailed above).
-            Point values based on task difficulty:
-                Easy Task: +0.5 attribute points
-                Medium Task: +1 attribute point
-                Hard Task: +2 attribute points
+    User's Habit Description: "$habitDescription"
 
-        Experience Points (EXP):
-            Every task also grants EXP based on its difficulty, regardless of which attribute it affects.
-            EXP values based on task difficulty:
-                Easy Task: +5 EXP
-                Medium Task: +10 EXP
-                Hard Task: +20 EXP
+    Respond with ONLY a JSON object containing a single key "tasks". The value of "tasks" should be an array of JSON objects, where each object represents a task and has the following keys:
+    - "taskName": string
+    - "taskDescription": string
+    - "taskAttribute": string (must be one of H, I, C, C, U, P)
+    - "taskDifficulty": string (must be one of Easy, Medium, Hard)
+    - "taskRecurrence": string (must be one of Daily, Weekly, Monthly, Once)
 
-        Star Currency:
-            An in-system currency used to purchase items from a "Shop."
-            Star Currency earned based on task difficulty:
-                Easy Task: +10 stars
-                Medium Task: +25 stars
-                Hard Task: +50 stars
-
-        Leveling:
-            The system incorporates a leveling mechanism based on accumulated EXP.
-            Level calculation: Level = 1 + (EXP / 100)²
-
-    Analyze the following user request for a new goal or habit. Based on the description, determine the following attributes.
-    Your entire response MUST be a single, valid JSON object. Do NOT include any text, explanations, thoughts, comments, or any non-JSON characters (like 'inhaled', 'thought', etc.) anywhere, neither outside nor inside the JSON structure (e.g., between key-value pairs, within arrays, or within string values unless they are part of the actual requested data).
-    Do not use markdown code fences (e.g., ```json ... ```). The response must start with '{' and end with '}'. Ensure all string values within the JSON are properly escaped if they contain special characters.
-
-    The JSON object must contain the following keys:
-    1.  `concisePromptTitle`: Create a short, clear title summarizing the overall goal/habit (e.g., "Learn Flutter Basics", "Daily Morning Meditation").
-    2.  `habitType`: Classify the overall request. Use one of the exact strings: "goal" (for tasks that are done once) or "habit" (for tasks intended to be repeated indefinitely).
-    3.  `cooldownDurationInMinutes`: If `habitType` is "habit", provide an integer representing the cooldown in minutes (e.g., 30, 60, 120, 1440 for 24 hours, 2880 for 48 hours). This is how long the user must wait after completing the habit before they can log it again. If `habitType` is "goal", set this to `null`.
-    4.  `recurrence`: If `habitType` is "habit", determine the recurrence. Use the exact strings "daily", "weekly", or "none". If `habitType` is "goal", use "none".
-    5.  `weeklyTarget`: If `recurrence` is "weekly", determine the target number of completions per week (e.g., for "exercise 3 times a week", `weeklyTarget` would be 3). If not applicable, set to null.
-    6.  `endDate`: Determine if the request implies a specific duration (e.g., "for 3 weeks", "in 6 months", "by Dec 31st"). If a duration is found, calculate the corresponding end date from today (assume today is ${DateTime.now().toIso8601String().substring(0,10)}) and return it as an ISO 8601 string (YYYY-MM-DD). If no duration or it seems permanent (e.g. for a "habit"), return null.
-    7.  `primaryAttribute`: Based on the HICCUP system, determine the primary attribute this habit/goal would develop (Health, Intelligence, Cleanliness, Charisma, Unity, or Power).
-    8.  `tasks`: Break down the overall goal/habit into smaller, manageable sub-tasks. For each task, provide:
-        *   `task`: A clear description of the sub-task.
-        *   `difficulty`: Estimated difficulty ("Easy", "Medium", "Hard").
-        *   `estimatedTime`: Estimated time to complete the sub-task in minutes (return as an integer).
-        *   `attribute`: Which HICCUP attribute this specific task primarily develops.
-
-    User Request: $habitDescription
-    JSON Response:
+    Do not use markdown code fences.
+    Example:
+    {
+      "tasks": [
+        {
+          "taskName": "Read 1 Chapter",
+          "taskDescription": "Read one chapter from 'Atomic Habits' focusing on habit formation techniques.",
+          "taskAttribute": "I",
+          "taskDifficulty": "Medium",
+          "taskRecurrence": "Daily"
+        },
+        {
+          "taskName": "Morning Hydration",
+          "taskDescription": "Drink a full glass of water immediately after waking up.",
+          "taskAttribute": "H",
+          "taskDifficulty": "Easy",
+          "taskRecurrence": "Daily"
+        }
+      ]
+    }
     ''';
 
-    final requestBody = jsonEncode({
-      "contents": [
-        {
-          "role": "user",
-          "parts": [{"text": prompt}]
-        }
-      ],
-      "generationConfig": {
-        "responseMimeType": "application/json", // Request JSON output directly
+    final List<Map<String, dynamic>> requestParts = [
+      {'text': prompt}
+    ];
+    final aiResponse = await _callFirebaseGemini(requestParts,
+        callingFunctionName: 'breakDownHabit');
+
+    if (aiResponse != null &&
+        aiResponse.containsKey('tasks') &&
+        aiResponse['tasks'] is List) {
+      // Basic validation of the structure
+      final tasksList = aiResponse['tasks'] as List;
+      if (tasksList
+          .every((task) => task is Map && task.containsKey('taskName'))) {
+        return aiResponse;
       }
-    });
-
-    try {
-      final response = await _authClient!.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: requestBody,
-      );
-
-      print("Vertex AI Raw Response Status: ${response.statusCode}");
-      print("Vertex AI Raw Response Body: ${response.body}");
-
-      if (response.statusCode == 200) {
-        final responseJson = jsonDecode(response.body);
-        
-        // Vertex AI response structure for generateContent
-        // It usually has a "candidates" array.
-        if (responseJson['candidates'] != null && 
-            responseJson['candidates'] is List && 
-            (responseJson['candidates'] as List).isNotEmpty &&
-            responseJson['candidates'][0]['content'] != null &&
-            responseJson['candidates'][0]['content']['parts'] != null &&
-            (responseJson['candidates'][0]['content']['parts'] as List).isNotEmpty &&
-            responseJson['candidates'][0]['content']['parts'][0]['text'] != null) {
-          
-          // The responseMimeType: "application/json" should make the model output raw JSON string
-          // If the model still wraps it, this parsing is necessary.
-          // For now, assuming it's a raw JSON string directly.
-          String modelOutputText = responseJson['candidates'][0]['content']['parts'][0]['text'] as String;
-          print("Extracted model output text (raw): $modelOutputText");
-
-          // Attempt to extract only the JSON part using a regex
-          // This looks for a string that starts with { and ends with }, accounting for nested structures.
-          // It's a common approach but might not be foolproof for all edge cases of malformed strings.
-          final RegExp jsonRegex = RegExp(r'\\{[\\s\\S]*\\}');
-          final Match? jsonMatch = jsonRegex.firstMatch(modelOutputText);
-
-          if (jsonMatch != null) {
-            modelOutputText = jsonMatch.group(0)!;
-            print("Extracted model output text (regex cleaned): $modelOutputText");
-          } else {
-            print("Warning: Could not extract a clear JSON structure using regex. Attempting to parse raw text.");
-          }
-          
-          // Attempt to remove known model artifacts like "inhaled" that might be injected inside the JSON
-          // This is a workaround for model behavior that inserts non-JSON text within the JSON structure.
-          modelOutputText = modelOutputText.replaceAll(RegExp(r'\\n\s*inhaled\s*\\n(?=\\s*})'), '\\n'); // Specifically targets 'inhaled' before a closing brace of an object in a list
-          modelOutputText = modelOutputText.replaceAll(RegExp(r'\\n\s*inhaled\s*'), ''); // More general cleanup of 'inhaled' if the above is too specific
-          print("Extracted model output text (artifact cleaned): $modelOutputText");
-          
-          try {
-            final decoded = jsonDecode(modelOutputText);
-
-            if (decoded is Map<String, dynamic>) {
-               if (decoded.containsKey('concisePromptTitle') &&
-                   decoded.containsKey('habitType') && // Ensure this key matches the prompt
-                   // cooldownDurationInMinutes is optional in the response if habitType is 'goal', so check for it carefully
-                   decoded.containsKey('recurrence') &&
-                   decoded.containsKey('tasks') &&
-                   decoded['tasks'] is List) {
-                   // Basic validation for tasks list elements
-                   bool tasksValid = true;
-                   if ((decoded['tasks'] as List).isNotEmpty) {
-                      for (var task in (decoded['tasks'] as List)) {
-                         if (task is! Map<String, dynamic> ||
-                             !task.containsKey('task') ||
-                             !task.containsKey('difficulty') ||
-                             !task.containsKey('estimatedTime')) {
-                            tasksValid = false;
-                            print("Error: Invalid task structure found: $task");
-                            break;
-                         }
-                      }
-                   }
-                   if (tasksValid) return decoded;
-                   print("Error: Tasks list contains invalid items.");
-                   return null;
-               } else {
-                  print("Error: Decoded JSON map is missing required keys or tasks is not a list.");
-                  print("Decoded map: $decoded");
-                  return null;
-               }
-            } else {
-              print("Error: Decoded JSON is not a map. Received: $decoded");
-              return null;
-            }
-          } catch (e, stacktrace) {
-            print("Error decoding extracted JSON from Vertex AI: $e");
-            print("Model output text that failed to parse: $modelOutputText");
-            print("Stacktrace: $stacktrace");
-            return null;
-          }
-        } else {
-          print("Error: Vertex AI response does not have the expected structure.");
-          print("Full Response JSON: $responseJson");
-          return null;
-        }
-      } else {
-        print('Error calling Vertex AI: ${response.statusCode}');
-        print('Response body: ${response.body}');
-        return null;
-      }
-    } catch (e, stacktrace) {
-      print('Error in breakDownHabit with Vertex AI: $e');
-      print("Stacktrace: $stacktrace");
-      return null;
     }
+    print(
+        "Error or unexpected structure in breakDownHabit AI response: $aiResponse");
+    return null; // Fallback if AI response is not as expected
   }
 
   Future<Map<String, dynamic>> verifyTaskCompletion({
-    required String taskDescription,
-    String? completionDescription,
-    Uint8List? imageData,
+    required String taskDescription, // This is the original task's description
+    String? completionDescription, // User's text proof
+    Uint8List? imageData, // User's image proof
   }) async {
-    await _initialize(); // Ensure client is initialized
-     if (_authClient == null) {
-      print("Error: Auth client not initialized for verifyTaskCompletion.");
-       return {'isValid': false, 'reason': 'Authentication not initialized.'};
+    if (imageData == null &&
+        (completionDescription == null || completionDescription.isEmpty)) {
+      return {
+        'isValid': false,
+        'reason': 'No description or image provided as proof.'
+      };
     }
-    
-    // For multimodal, gemini-1.5-pro-latest also works.
-    // If using a different model specifically for vision, update _modelName or pass it.
-    final url = Uri.parse(
-        'https://$_region-aiplatform.googleapis.com/v1/projects/$_projectId/locations/$_region/publishers/google/models/$_modelName:generateContent');
 
-    final parts = <Map<String, dynamic>>[];
-    
+    final List<Map<String, dynamic>> requestParts = [];
+
     String instruction = '''
     System Prompt: Gamified Self-Improvement Framework
 
@@ -447,246 +304,155 @@ class AIService {
     
     When determining which HICCUP attribute the task develops, carefully analyze the exact nature of the task and match it to the most appropriate attribute based on the detailed descriptions provided earlier.
 
-    Task Description: $taskDescription
+    Original Task Description: $taskDescription
     ''';
 
     if (completionDescription != null && completionDescription.isNotEmpty) {
-      instruction += '\nCompletion Description: $completionDescription';
+      instruction += '\nUser Completion Description: $completionDescription';
     }
-    parts.add({"text": instruction});
+    requestParts.add({"text": instruction});
 
-    if (imageData == null && (completionDescription == null || completionDescription.isEmpty)) {
-      return {'isValid': false, 'reason': 'No description or image provided as proof.'};
-    }
-    
     if (imageData != null) {
-      parts.add({
+      requestParts.add({
         "inlineData": {
-          "mimeType": "image/jpeg", // Or image/png
-          "data": base64Encode(imageData) 
+          "mimeType":
+              "image/jpeg", // Or image/png, Firebase function should handle this
+          "data": base64Encode(imageData)
         }
       });
     }
-    
-    parts.add({"text": '''
+
+    requestParts.add({
+      "text": '''
     Respond with ONLY a JSON object containing the following keys:
     - "isValid": boolean (true if the completion is valid, false otherwise)
     - "reason": string (MUST provide a detailed explanation of WHY the completion is valid or invalid - this is REQUIRED for BOTH valid and invalid responses)
-    - "suggestedAttribute": string (suggest which HICCUP attribute this task primarily develops based on task description)
+    - "suggestedAttribute": string (suggest which HICCUP attribute this task primarily develops based on original task description)
     
     Do not use markdown code fences.
     Example of valid response: {"isValid": true, "reason": "The user provided specific details about completing their 30-minute workout, including which exercises they performed, duration, and how they felt afterward. The image shows a completed workout tracker that matches the description.", "suggestedAttribute": "Power"}
     Example of invalid response: {"isValid": false, "reason": "The description only restates the task title without providing any specific details about how the meditation was performed, for how long, or what techniques were used. There's no evidence of actual completion beyond claiming it was done.", "suggestedAttribute": "Unity"}
-    '''.trim()});
-
-
-    final requestBody = jsonEncode({
-      "contents": [{"role": "user", "parts": parts}],
-      "generationConfig": {
-        "responseMimeType": "application/json",
-      }
+    '''
+          .trim()
     });
 
-    try {
-      final response = await _authClient!.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: requestBody,
-      );
+    final aiResponse = await _callFirebaseGemini(requestParts,
+        callingFunctionName: 'verifyTaskCompletion');
 
-      print("Vertex AI Verification Raw Response Status: ${response.statusCode}");
-      print("Vertex AI Verification Raw Response Body: ${response.body}");
+    if (aiResponse != null &&
+        aiResponse.containsKey('isValid') &&
+        aiResponse['isValid'] is bool) {
+      final reason = aiResponse['reason'];
+      final attribute = aiResponse['suggestedAttribute'];
 
-      if (response.statusCode == 200) {
-        final responseJson = jsonDecode(response.body);
-        if (responseJson['candidates'] != null &&
-            (responseJson['candidates'] as List).isNotEmpty &&
-            responseJson['candidates'][0]['content'] != null &&
-            responseJson['candidates'][0]['content']['parts'] != null &&
-            (responseJson['candidates'][0]['content']['parts'] as List).isNotEmpty &&
-            responseJson['candidates'][0]['content']['parts'][0]['text'] != null) {
-
-            final modelOutputText = responseJson['candidates'][0]['content']['parts'][0]['text'] as String;
-            print("Extracted verification model output text: $modelOutputText");
-            
-            try {
-              final decoded = jsonDecode(modelOutputText) as Map<String, dynamic>;
-              if (decoded.containsKey('isValid') && decoded['isValid'] is bool) {
-                 final reason = decoded['reason'];
-                 final suggestedAttribute = decoded['suggestedAttribute'] as String?;
-                 
-                 if (reason == null || reason is String) {
-                     return {
-                         'isValid': decoded['isValid'],
-                         'reason': (reason == null || reason.isEmpty) 
-                                    ? (decoded['isValid'] 
-                                       ? 'AI accepted the completion but provided no specific reason.'
-                                       : 'AI rejected the completion but provided no specific reason.')
-                                    : reason,
-                         'suggestedAttribute': suggestedAttribute ?? 'Unity' // Default to Unity if no attribute suggested
-                     };
-                 }
-              }
-               print("Error: Decoded verification JSON has invalid structure or types.");
-               print("Decoded response: $decoded");
-               return {'isValid': false, 'reason': 'AI response structure invalid after decoding.'};
-
-            } catch (e) {
-              print("Error decoding verification JSON from Vertex AI: $e");
-              print("Model output text for verification that failed to parse: $modelOutputText");
-              return {'isValid': false, 'reason': 'Failed to parse AI response for verification.'};
-            }
-        } else {
-          print("Error: Vertex AI verification response does not have the expected structure.");
-          print("Full Response JSON: $responseJson");
-          return {'isValid': false, 'reason': 'AI response format error (structure).'};
-        }
-      } else {
-        print('Error calling Vertex AI for verification: ${response.statusCode}');
-        print('Response body: ${response.body}');
-        return {'isValid': false, 'reason': 'Error communicating with AI for verification.'};
+      if ((reason == null || reason is String) &&
+          (attribute == null || attribute is String)) {
+        return {
+          'isValid': aiResponse['isValid'],
+          'reason': (reason == null || reason.isEmpty)
+              ? (aiResponse['isValid']
+                  ? 'Completion verified.'
+                  : 'Completion could not be verified.')
+              : reason,
+          'suggestedAttribute': attribute ?? 'Unknown',
+        };
       }
-    } catch (e, stacktrace) {
-      print('Error in verifyTaskCompletion with Vertex AI: $e');
-      print("Stacktrace: $stacktrace");
-      
-      return {'isValid': false, 'reason': 'Exception during AI verification call.', 'suggestedAttribute': 'Unity'};
     }
+    print(
+        "Error or unexpected structure in verifyTaskCompletion AI response: $aiResponse");
+    // Fallback if AI response is not as expected
+    return {
+      'isValid': false,
+      'reason': 'AI verification failed or returned an unexpected response.',
+      'suggestedAttribute': 'Unknown'
+    };
   }
 
-  /// Validates if a habit description is coherent enough for AI processing
-  /// Returns a map with 'isValid' boolean and 'reason' string explaining why it's valid/invalid
-  Future<Map<String, dynamic>> validateHabitDescription(String description) async {
-    await _initialize(); // Ensure client is initialized
-    if (_authClient == null) {
-      print("Error: Auth client not initialized for validateHabitDescription.");
-      return {'isValid': false, 'reason': 'Authentication not initialized.'};
-    }
-
-    // Simple client-side validation for obviously invalid descriptions
-    if (description.trim().isEmpty) {
-      return {
-        'isValid': false,
-        'reason': 'Description cannot be empty. Please provide a meaningful description of your goal or habit.'
-      };
-    }
-
-    // Check for very short or generic inputs
-    final lowercaseDesc = description.toLowerCase().trim();
-    final invalidShortTerms = [
-      'hi', 'hello', 'test', 'xyz', 'asdf', 'qwerty', 'ok', 'yes', 'no',
-      'a', 'b', 'c', '123', 'abc', 'lol', 'haha', 'what', 'why', 'how', 'hmm'
-    ];
-    
-    if (description.length < 5 || invalidShortTerms.contains(lowercaseDesc)) {
-      return {
-        'isValid': false,
-        'reason': 'Please provide a more detailed and coherent description of your goal or habit. Short phrases or generic terms cannot be processed into meaningful tasks.'
-      };
-    }
-
-    // Use AI to validate more complex cases
-    final url = Uri.parse(
-        'https://$_region-aiplatform.googleapis.com/v1/projects/$_projectId/locations/$_region/publishers/google/models/$_modelName:generateContent');
-
+  Future<Map<String, dynamic>> validateHabitDescription(
+      String description) async {
     final prompt = '''
-    You are validating a user's input for creating a habit or goal in a self-improvement app.
-    The input must be coherent, specific enough to be broken down into tasks, and represent a genuine self-improvement goal or habit.
-    
+    System Prompt: Habit Description Validation
+
+    You are an AI assistant responsible for validating user input for a habit tracking application.
+    Your goal is to determine if a user's description of a habit or goal is coherent, specific enough
+    to be broken down into actionable tasks, and genuinely related to self-improvement.
+
+    Criteria for a VALID habit description:
+    1.  Clarity: The description is understandable and not gibberish.
+    2.  Specificity: It's not overly vague (e.g., "be better," "improve myself"). It should hint at concrete actions.
+    3.  Relevance: It pertains to personal development, skill-building, health, or well-being.
+    4.  Actionability (Implied): It seems possible to derive smaller, actionable steps from it.
+    5.  Sincerity: It doesn't appear to be a test message, placeholder, or nonsensical input.
+
+    Criteria for an INVALID habit description:
+    1.  Nonsensical: Random characters, gibberish (e.g., "asdfjkl;", "test test").
+    2.  Extremely Vague: So general that no clear actions can be inferred (e.g., "be good," "live life").
+    3.  Inappropriate Content: Offensive, harmful, or unrelated to self-improvement.
+    4.  Not a Habit/Goal: Statements that aren't habits or goals (e.g., "the sky is blue," "I like pizza").
+    5.  Too Short/Unclear: Lacks sufficient detail to understand the intent (e.g., "read", "exercise" - without more context, these might be too vague, but "read a book" or "exercise daily" is better).
+
     User input: "$description"
-    
-    Determine if this input is valid for AI processing into tasks. Invalid inputs include:
-    1. Nonsensical text or random characters
-    2. Extremely vague descriptions that can't be broken down (e.g., "be better")
-    3. Inappropriate content
-    4. Content not related to self-improvement or personal goals
-    5. Test messages or placeholders (e.g., "testing", "asdf")
+
+    Determine if this input is valid for AI processing into tasks.
     
     Respond with ONLY a JSON object containing the following keys:
     - "isValid": boolean (true if the input is valid, false otherwise)
-    - "reason": string (explain why the input is valid or invalid - this must be detailed)
+    - "reason": string (explain concisely WHY the input is valid or invalid - this must be detailed and helpful)
     
     Do not use markdown code fences.
+    Example (Valid):
+    User input: "Learn to play the guitar by practicing chords daily"
+    {
+      "isValid": true,
+      "reason": "The description is clear, specific, and outlines an actionable self-improvement goal."
+    }
+
+    Example (Invalid - Too Vague):
+    User input: "Be more productive"
+    {
+      "isValid": false,
+      "reason": "The description 'Be more productive' is too vague. Please specify what you want to be more productive in or what actions you plan to take."
+    }
+
+    Example (Invalid - Nonsensical):
+    User input: "gjhgjg jhgjhg"
+    {
+      "isValid": false,
+      "reason": "The input appears to be nonsensical and cannot be processed as a habit."
+    }
     ''';
 
-    final requestBody = jsonEncode({
-      "contents": [{
-        "role": "user",
-        "parts": [{"text": prompt}]
-      }],
-      "generationConfig": {
-        "responseMimeType": "application/json",
+    final List<Map<String, dynamic>> requestParts = [
+      {'text': prompt}
+    ];
+    final aiResponse = await _callFirebaseGemini(requestParts,
+        callingFunctionName: 'validateHabitDescription');
+
+    if (aiResponse != null &&
+        aiResponse.containsKey('isValid') &&
+        aiResponse['isValid'] is bool) {
+      final reason = aiResponse['reason'];
+      if (reason == null || reason is String) {
+        return {
+          'isValid': aiResponse['isValid'],
+          'reason': (reason == null || reason.isEmpty)
+              ? (aiResponse['isValid']
+                  ? 'Description is valid for processing.'
+                  : 'Description is not detailed enough for processing.')
+              : reason,
+        };
       }
-    });
-
-    try {
-      final response = await _authClient!.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: requestBody,
-      );
-
-      if (response.statusCode == 200) {
-        final responseJson = jsonDecode(response.body);
-        if (responseJson['candidates'] != null &&
-            (responseJson['candidates'] as List).isNotEmpty &&
-            responseJson['candidates'][0]['content'] != null &&
-            responseJson['candidates'][0]['content']['parts'] != null &&
-            (responseJson['candidates'][0]['content']['parts'] as List).isNotEmpty &&
-            responseJson['candidates'][0]['content']['parts'][0]['text'] != null) {
-
-            final modelOutputText = responseJson['candidates'][0]['content']['parts'][0]['text'] as String;
-            
-            try {
-              final decoded = jsonDecode(modelOutputText) as Map<String, dynamic>;
-              if (decoded.containsKey('isValid') && decoded['isValid'] is bool) {
-                 final reason = decoded['reason'];
-                 
-                 if (reason == null || reason is String) {
-                     return {
-                         'isValid': decoded['isValid'],
-                         'reason': (reason == null || reason.isEmpty) 
-                                    ? (decoded['isValid'] 
-                                       ? 'Description is valid for processing.'
-                                       : 'Description is not detailed enough for processing.')
-                                    : reason,
-                     };
-                 }
-              }
-              return {'isValid': false, 'reason': 'The description could not be properly validated.'};
-
-            } catch (e) {
-              print("Error decoding validation JSON from Vertex AI: $e");
-              // Fall back to client-side validation
-              return {
-                'isValid': description.length >= 10, 
-                'reason': description.length >= 10 
-                  ? 'Basic validation passed, but AI validation failed.'
-                  : 'Description is too short and AI validation failed.'
-              };
-            }
-        }
-      }
-      
-      // If we get here, something went wrong with the API call
-      print('Error or unexpected structure in AI validation response: ${response.statusCode}');
-      // Fall back to basic validation
-      return {
-        'isValid': description.length >= 10,
-        'reason': description.length >= 10 
-          ? 'Basic validation passed, but advanced validation unavailable.'
-          : 'Description is too short.'
-      };
-      
-    } catch (e) {
-      print('Error in validateHabitDescription with Vertex AI: $e');
-      // Fall back to basic validation if AI call fails
-      return {
-        'isValid': description.length >= 10,
-        'reason': description.length >= 10 
-          ? 'Basic validation passed (AI validation unavailable).'
-          : 'Description is too short.'
-      };
     }
+    print(
+        "Error or unexpected structure in validateHabitDescription AI response: $aiResponse");
+    // Fallback for client-side basic validation if AI call fails or returns malformed data
+    bool basicIsValid =
+        description.length >= 10 && !description.toLowerCase().contains("test");
+    return {
+      'isValid': basicIsValid,
+      'reason': basicIsValid
+          ? 'Basic validation passed (AI validation unavailable or failed).'
+          : 'Description is too short or seems like a test (AI validation unavailable or failed).'
+    };
   }
 }

@@ -2086,7 +2086,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         _showErrorPopup(
                                           context: context,
                                           title: 'Invalid Goal/Habit Description',
-                                          message: validationResult['reason'] ?? 
+                                          message: validationResult['feedback'] as String? ?? 
                                               'Please provide a more detailed and coherent description of your goal or habit.',
                                         );
                                       }
@@ -2113,6 +2113,27 @@ class _HomeScreenState extends State<HomeScreen> {
                                           .breakDownHabit(originalDescription);
 
                                       if (habitData != null) {
+                                        // Check if the AI deemed the habit invalid for breakdown
+                                        if (habitData.containsKey('isValid') && habitData['isValid'] == false && habitData.containsKey('reason')) {
+                                          if (dialogContext.mounted) {
+                                            Navigator.pop(dialogContext); // Close the loading dialog
+                                          }
+                                          if (context.mounted) {
+                                            _showErrorPopup(
+                                              context: context,
+                                              title: 'Invalid Goal/Habit',
+                                              message: habitData['reason'] as String? ?? 'The AI could not process this goal/habit. Please provide a more specific description.',
+                                            );
+                                          }
+                                          // Reset state and return
+                                          setState(() {
+                                            _isAddingHabit = false;
+                                            _habitController.clear();
+                                          });
+                                          return; // Stop further processing
+                                        }
+
+                                        // Original logic for successful breakdown continues here
                                         final String conciseTitle =
                                             habitData['concisePromptTitle'] ??
                                                 originalDescription;
@@ -2152,36 +2173,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                         final List<HabitTask> habitTasks =
                                             tasksData
                                                 .map((taskMap) {
-                                                  if (taskMap
-                                                      is Map<String, dynamic>) {
+                                                  if (taskMap is Map) { // Check if it's any kind of Map
+                                                    final typedTaskMap = Map<String, dynamic>.from(taskMap); // Explicitly cast to Map<String, dynamic>
                                                     int estimatedMinutes = 0;
-                                                    if (taskMap['estimatedTime']
-                                                        is int) {
-                                                      estimatedMinutes =
-                                                          taskMap[
-                                                              'estimatedTime'];
-                                                    } else if (taskMap[
-                                                            'estimatedTime']
-                                                        is String) {
-                                                      estimatedMinutes =
-                                                          int.tryParse(taskMap[
-                                                                      'estimatedTime']
-                                                                  .toString()) ??
-                                                              0;
+                                                    // Use typedTaskMap for accessing 'estimatedTime'
+                                                    if (typedTaskMap['estimatedTime'] is int) {
+                                                      estimatedMinutes = typedTaskMap['estimatedTime'] as int;
+                                                    } else if (typedTaskMap['estimatedTime'] is String) {
+                                                      estimatedMinutes = int.tryParse(typedTaskMap['estimatedTime'].toString()) ?? 0;
                                                     }
 
                                                     return HabitTask(
                                                       id: uuid.v4(),
-                                                      description: taskMap[
-                                                                  'task']
-                                                              ?.toString() ??
-                                                          'Unnamed Task',
-                                                      difficulty: taskMap[
-                                                                  'difficulty']
-                                                              ?.toString() ??
-                                                          'Medium',
-                                                      estimatedTimeMinutes:
-                                                          estimatedMinutes,
+                                                      // Use typedTaskMap for accessing description and difficulty keys
+                                                      description: typedTaskMap['taskName']?.toString() ?? 
+                                                                   typedTaskMap['taskDescription']?.toString() ?? 
+                                                                   'Unnamed Task',
+                                                      difficulty: typedTaskMap['taskDifficulty']?.toString() ?? 'Medium',
+                                                      estimatedTimeMinutes: estimatedMinutes,
                                                     );
                                                   } else {
                                                     print(

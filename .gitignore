@@ -1,5 +1,6 @@
 # Miscellaneous
 *.class
+*.lock
 *.log
 *.pyc
 *.swp
@@ -8,44 +9,64 @@
 .buildlog/
 .history
 .svn/
-migrate_working_dir/
 
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
+# Flutter/Dart
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
 /build/
+/node_modules/
+/ios/Pods/
+/ios/.symlinks/
+/ios/Flutter/App.framework
+/ios/Flutter/Flutter.framework
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/flutter_export_environment.sh
+/ios/Runner/GeneratedPluginRegistrant.*
+# /ios/Runner/Info.plist # Usually versioned, but can be ignored if auto-generated and customized via build scripts
+/ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/
+/ios/Runner.xcworkspace/xcshareddata/
+/android/.gradle/
+/android/app/src/main/jniLibs/
+/android/app/build/
+/android/build/
+/android/gradle/
+/android/gradlew
+/android/gradlew.bat
+# /android/key.properties # Sensitive, should always be ignored
+# /android/local.properties # Environment-specific, should always be ignored
+/android/.idea/caches/
+/android/.idea/libraries/
+/android/.idea/modules.xml
+/android/.idea/workspace.xml
+/android/.idea/gradle.xml
+/android/.idea/misc.xml
+# /android/app/google-services.json # Ignore if you don't want to share Firebase config, or if it's environment-specific
 
-# Symbolication related
-app.*.symbols
+# IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+modules.xml
+out/
 
-# Obfuscation related
-app.*.map.json
+# VS Code
+.vscode/
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Config files with sensitive information
-/lib/config/
-*.json
-lib/config/api_config.dart
-lib/config/vertex_ai_credentials.json
-assets/vertex_ai_credentials.json
-assets/env_config.json
+# Firebase - .firebaserc is often user/environment specific
+# .firebase/
+# firebase.json # Often project-specific, consider if it should be versioned
+database-debug.log
+
+# Sensitive files
+secrets.json
+*.env
