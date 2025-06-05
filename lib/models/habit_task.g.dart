@@ -21,13 +21,13 @@ class HabitTaskAdapter extends TypeAdapter<HabitTask> {
       description: fields[1] as String,
       difficulty: fields[2] as String,
       estimatedTimeMinutes: fields[3] as int,
-      isCompleted: fields[4] as bool,
+      isCompleted: fields[4] == null ? false : fields[4] as bool,
       lastCompletedDate: fields[5] as DateTime?,
       pointsAwarded: fields[6] as int?,
       expAwarded: fields[7] as int?,
       attributesAwarded: (fields[8] as Map?)?.cast<String, double>(),
       lastVerifiedTimestamp: fields[9] as DateTime?,
-      isNonHabitTask: fields[10] as bool,
+      isNonHabitTask: fields[10] == null ? false : fields[10] as bool,
     );
   }
 

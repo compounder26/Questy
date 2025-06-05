@@ -34,7 +34,7 @@ class HabitTask extends HiveObject { // Extend HiveObject
   final String difficulty;
   @HiveField(3)
   final int estimatedTimeMinutes;
-  @HiveField(4)
+  @HiveField(4, defaultValue: false)
   bool isCompleted;
   @HiveField(5)
   DateTime? lastCompletedDate; // Field 5: Last completion date
@@ -46,7 +46,7 @@ class HabitTask extends HiveObject { // Extend HiveObject
   Map<String, double>? attributesAwarded; // Map of attribute name to amount
   @HiveField(9)
   DateTime? lastVerifiedTimestamp; // For per-task cooldown tracking
-  @HiveField(10)
+  @HiveField(10, defaultValue: false)
   bool isNonHabitTask; // New field to track if this is a non-habit task
 
   HabitTask({
