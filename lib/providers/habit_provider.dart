@@ -151,7 +151,7 @@ class HabitProvider extends ChangeNotifier {
       habit.lastUpdated = DateTime.now();
       // Only archive and remove if this is a goal and all tasks are completed
       if (habit.habitType == HabitType.goal && habit.areAllTasksCompleted) {
-        await _archivedHabitBox.put(habit.id, habit); // Archive the completed goal
+        await _archivedHabitBox.put(habit.id, habit.copyWith()); // Archive a copy of the completed goal
         _habits.removeAt(index);
         print('Goal "${habit.concisePromptTitle}" completed, archived, and removed from active habits.');
       } else {

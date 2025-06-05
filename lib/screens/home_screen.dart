@@ -590,7 +590,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     child: InkWell(
                                       // Disable onTap only if task is on cooldown
                                       // For permanent habits, completed tasks can be verified again after cooldown
-                                      onTap: task.isCoolingDown
+                                      onTap: (task.isCoolingDown || (habit.habitType == HabitType.goal && task.isCompleted))
                                           ? null
                                           : () => _verifyTaskCompletion(
                                               task, habit),
@@ -603,7 +603,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             value: task.isCompleted,
                                             // Disable onChanged only if task is on cooldown
                                             // For permanent habits, completed tasks can be verified again after cooldown
-                                            onChanged: task.isCoolingDown
+                                            onChanged: (task.isCoolingDown || (habit.habitType == HabitType.goal && task.isCompleted))
                                                 ? null
                                                 : (_) => _verifyTaskCompletion(
                                                     task, habit),
@@ -618,12 +618,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   task.description,
                                                   style: AppTheme.pixelBodyStyle
                                                       .copyWith(
-                                                    decoration: task.isCompleted && task.isCoolingDown // Only show line-through if completed AND still cooling down (or not resettable)
-                                                        ? TextDecoration
-                                                            .lineThrough
-                                                        : (task.isCompleted && habit.endDate != null) // For non-permanent habits, always line-through if completed
-                                                            ? TextDecoration.lineThrough
-                                                            : null,
+                                                    decoration: task.isCompleted && (habit.habitType == HabitType.goal || task.isCoolingDown || habit.endDate != null)
+                                                        ? TextDecoration.lineThrough
+                                                        : null,
                                                     color: task.isCoolingDown
                                                         ? Colors.grey[600]
                                                         : Colors
@@ -1819,6 +1816,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Mark task complete & Award Stars and EXP
           task.isCompleted = true;
           task.lastCompletedDate = DateTime.now();
+          task.lastVerifiedTimestamp = DateTime.now(); // Ensure cooldown logic works
 
           // If this is a non-habit task, mark it as such
           if (parentHabit.habitType != HabitType.habit) {
@@ -2308,7 +2306,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           'Medium',
                                                       estimatedTimeMinutes:
                                                           estimatedMinutes,
-                                                      cooldownDurationInMinutes: taskCooldownMinutes,
+                                                      cooldownDurationInMinutes: (habitType == HabitType.habit && recurrence == Recurrence.daily) ? 1440 : taskCooldownMinutes,
                                                     );
                                                   } else {
                                                     print(

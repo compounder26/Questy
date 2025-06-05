@@ -63,4 +63,34 @@ class Habit extends HiveObject {
   }
 
   // isCoolingDown and cooldownTimeRemaining getters removed as cooldown is now per-task
+
+  Habit copyWith({
+    String? id,
+    String? description,
+    String? concisePromptTitle,
+    List<HabitTask>? tasks,
+    DateTime? createdAt,
+    HabitType? habitType,
+    Recurrence? recurrence,
+    DateTime? endDate,
+    bool setEndDateToNull = false,
+    int? weeklyTarget,
+    bool setWeeklyTargetToNull = false,
+    int? weeklyProgress,
+    DateTime? lastUpdated,
+  }) {
+    return Habit(
+      id: id ?? this.id,
+      description: description ?? this.description,
+      concisePromptTitle: concisePromptTitle ?? this.concisePromptTitle,
+      tasks: tasks ?? this.tasks.map((task) => task.copyWith()).toList(), // Deep copy tasks
+      createdAt: createdAt ?? this.createdAt,
+      habitType: habitType ?? this.habitType,
+      recurrence: recurrence ?? this.recurrence,
+      endDate: setEndDateToNull ? null : (endDate ?? this.endDate),
+      weeklyTarget: setWeeklyTargetToNull ? null : (weeklyTarget ?? this.weeklyTarget),
+      weeklyProgress: weeklyProgress ?? this.weeklyProgress,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+    );
+  }
 }
