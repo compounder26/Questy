@@ -24,21 +24,21 @@ class Reward {
     if (isCollectible) {
       final result = !isOwnedCollectible;
       print(
-          'AVAILABILITY CHECK: ${name} (collectible) - already owned: $isOwnedCollectible, available: $result');
+          'AVAILABILITY CHECK: $name (collectible) - already owned: $isOwnedCollectible, available: $result');
       return result;
     }
 
     // For consumables without limits, always available
     if (purchaseLimitPerPeriod == null || purchasePeriodHours == null) {
       print(
-          'AVAILABILITY CHECK: ${name} (unlimited consumable) - always available');
+          'AVAILABILITY CHECK: $name (unlimited consumable) - always available');
       return true;
     }
 
     // If no purchase history exists yet, it's available
     if (status == null) {
       print(
-          'AVAILABILITY CHECK: ${name} (limited consumable) - no status yet, available');
+          'AVAILABILITY CHECK: $name (limited consumable) - no status yet, available');
       return true;
     }
 
@@ -54,10 +54,10 @@ class Reward {
       if (stillOnCooldown) {
         final remaining = cooldownEndTime.difference(now);
         print(
-            'AVAILABILITY CHECK: ${name} - ON COOLDOWN for ${remaining.inMinutes} more minutes');
+            'AVAILABILITY CHECK: $name - ON COOLDOWN for ${remaining.inMinutes} more minutes');
         return false; // Still on cooldown
       } else {
-        print('AVAILABILITY CHECK: ${name} - cooldown expired, now available');
+        print('AVAILABILITY CHECK: $name - cooldown expired, now available');
         return true; // Cooldown expired
       }
     }
@@ -65,7 +65,7 @@ class Reward {
     // If not on cooldown, check purchase count
     final underLimit = status.purchaseCount < purchaseLimitPerPeriod!;
     print(
-        'AVAILABILITY CHECK: ${name} - count: ${status.purchaseCount}/${purchaseLimitPerPeriod}, available: $underLimit');
+        'AVAILABILITY CHECK: $name - count: ${status.purchaseCount}/$purchaseLimitPerPeriod, available: $underLimit');
     return underLimit;
   }
 
@@ -88,14 +88,14 @@ class Reward {
       if (DateTime.now().isBefore(cooldownEndTime)) {
         // Cooldown active, timer will be shown separately by UI
         // Text should still reflect the underlying limit, e.g., 3/3 purchased, now cooling down
-        return '${purchaseLimitPerPeriod!}/${limitText}';
+        return '${purchaseLimitPerPeriod!}/$limitText';
       }
       // Cooldown finished, count should have been reset by purchase logic or will be on next attempt
       currentPurchaseCount =
           0; // Reflects that it's available again post-cooldown
     }
 
-    return '${purchaseLimitPerPeriod! - currentPurchaseCount}/${limitText}';
+    return '${purchaseLimitPerPeriod! - currentPurchaseCount}/$limitText';
   }
 
   Reward({
@@ -151,8 +151,8 @@ class Reward {
       isCollectible: false,
       type: 'task_eraser',
       effectData: {'removeCount': 1},
-      purchaseLimitPerPeriod: 2,
-      purchasePeriodHours: 0, // 2x per day
+      purchaseLimitPerPeriod: 1,
+      purchasePeriodHours: 24, // 2x per day
     ),
     Reward(
       id: 'focus_booster',
@@ -165,12 +165,13 @@ class Reward {
       type: 'reward_multiplier',
       effectData: {'multiplier': 1.5, 'duration': 30}, // 30 minutes
       purchaseLimitPerPeriod: 1,
-      purchasePeriodHours: 6, // 1x per 6 hours
+      purchasePeriodHours: 24, // 1x per 6 hours
     ),
     Reward(
       id: 'daily_reset_ticket',
       name: 'Daily Reset Ticket',
-      description: 'Reset the cooldown timer of a daily task so you can complete it again immediately',
+      description:
+          'Reset the cooldown timer of a daily task so you can complete it again immediately',
       cost: 15,
       iconAsset: 'assets/images/Items/Consumables/ticket.png',
       isCollectible: false,
@@ -189,7 +190,7 @@ class Reward {
       type: 'currency_multiplier',
       effectData: {'multiplier': 2, 'duration': 3}, // 3 hours
       purchaseLimitPerPeriod: 1,
-      purchasePeriodHours: 3, // 1x per day
+      purchasePeriodHours: 24, // 1x per day
     ),
 
     // Collectible rewards (can only be purchased once)

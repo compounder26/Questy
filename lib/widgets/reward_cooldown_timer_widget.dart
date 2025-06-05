@@ -9,15 +9,16 @@ class RewardCooldownTimerWidget extends StatefulWidget {
   final int purchaseCount;
 
   const RewardCooldownTimerWidget({
-    Key? key,
+    super.key,
     required this.lastPurchaseTime,
     required this.purchasePeriodHours,
     required this.purchaseLimit,
     required this.purchaseCount,
-  }) : super(key: key);
+  });
 
   @override
-  _RewardCooldownTimerWidgetState createState() => _RewardCooldownTimerWidgetState();
+  _RewardCooldownTimerWidgetState createState() =>
+      _RewardCooldownTimerWidgetState();
 }
 
 class _RewardCooldownTimerWidgetState extends State<RewardCooldownTimerWidget> {
