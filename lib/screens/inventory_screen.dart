@@ -327,8 +327,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
         endDate: habit.endDate,
         weeklyTarget: habit.weeklyTarget,
         weeklyProgress: habit.weeklyProgress,
-        lastUpdated: habit.lastUpdated,
-        cooldownDurationInMinutes: habit.cooldownDurationInMinutes,
+        lastUpdated: habit.lastUpdated
+        // cooldownDurationInMinutes removed
       );
     }).whereType<Habit>().toList();
     

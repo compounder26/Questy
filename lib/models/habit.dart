@@ -29,8 +29,7 @@ class Habit extends HiveObject {
   int weeklyProgress;
   @HiveField(10)
   DateTime lastUpdated;
-  @HiveField(11)
-  int? cooldownDurationInMinutes;
+  // HiveField(11) was cooldownDurationInMinutes, now removed for per-task cooldown
 
   Habit({
     required this.id,
@@ -44,7 +43,6 @@ class Habit extends HiveObject {
     this.weeklyTarget,
     this.weeklyProgress = 0,
     DateTime? lastUpdated,
-    this.cooldownDurationInMinutes,
   }) : this.lastUpdated = lastUpdated ?? DateTime.now();
 
   bool get isActive {
@@ -65,4 +63,4 @@ class Habit extends HiveObject {
   }
 
   // isCoolingDown and cooldownTimeRemaining getters removed as cooldown is now per-task
-} 
+}

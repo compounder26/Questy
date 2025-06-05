@@ -28,13 +28,15 @@ class HabitTaskAdapter extends TypeAdapter<HabitTask> {
       attributesAwarded: (fields[8] as Map?)?.cast<String, double>(),
       lastVerifiedTimestamp: fields[9] as DateTime?,
       isNonHabitTask: fields[10] == null ? false : fields[10] as bool,
+      detailedDescription: fields[11] as String?,
+      cooldownDurationInMinutes: fields[12] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, HabitTask obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -56,7 +58,11 @@ class HabitTaskAdapter extends TypeAdapter<HabitTask> {
       ..writeByte(9)
       ..write(obj.lastVerifiedTimestamp)
       ..writeByte(10)
-      ..write(obj.isNonHabitTask);
+      ..write(obj.isNonHabitTask)
+      ..writeByte(11)
+      ..write(obj.detailedDescription)
+      ..writeByte(12)
+      ..write(obj.cooldownDurationInMinutes);
   }
 
   @override

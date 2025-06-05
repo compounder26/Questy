@@ -48,6 +48,10 @@ class HabitTask extends HiveObject { // Extend HiveObject
   DateTime? lastVerifiedTimestamp; // For per-task cooldown tracking
   @HiveField(10, defaultValue: false)
   bool isNonHabitTask; // New field to track if this is a non-habit task
+  @HiveField(11)
+  final String? detailedDescription; // Detailed description from AI
+  @HiveField(12)
+  int? cooldownDurationInMinutes; // Cooldown duration for this specific task
 
   HabitTask({
     required this.id,
@@ -61,6 +65,8 @@ class HabitTask extends HiveObject { // Extend HiveObject
     this.attributesAwarded,
     this.lastVerifiedTimestamp,
     this.isNonHabitTask = false, // Default to false
+    this.detailedDescription,
+    this.cooldownDurationInMinutes,
   });
   
   // Helper method to get attribute changes as a list
@@ -70,5 +76,22 @@ class HabitTask extends HiveObject { // Extend HiveObject
       changes.add(AttributeChange(name: name, amount: amount));
     });
     return changes;
+  }
+
+  // Cooldown logic for individual tasks
+  bool get isCoolingDown {
+    if (lastVerifiedTimestamp == null || cooldownDurationInMinutes == null || cooldownDurationInMinutes == 0) {
+      return false;
+    }
+    final cooldownEndTime = lastVerifiedTimestamp!.add(Duration(minutes: cooldownDurationInMinutes!));
+    return DateTime.now().isBefore(cooldownEndTime);
+  }
+
+  Duration get cooldownTimeRemaining {
+    if (!isCoolingDown || lastVerifiedTimestamp == null || cooldownDurationInMinutes == null) {
+      return Duration.zero;
+    }
+    final cooldownEndTime = lastVerifiedTimestamp!.add(Duration(minutes: cooldownDurationInMinutes!));
+    return cooldownEndTime.difference(DateTime.now());
   }
 }

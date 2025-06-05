@@ -59,17 +59,18 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _initializeCarouselItems();
-    
+
     // Ensure reward state is properly loaded and synchronized
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = Provider.of<User>(context, listen: false);
-      final rewardProvider = Provider.of<RewardProvider>(context, listen: false);
-      
+      final rewardProvider =
+          Provider.of<RewardProvider>(context, listen: false);
+
       // Load reward state from persistent storage
       rewardProvider.loadRewardState(user).then((_) {
         // Then refresh reward statuses to handle any expired cooldowns
         rewardProvider.refreshRewardStatuses(user);
-        
+
         // Refresh the UI after reward state is loaded
         if (mounted) {
           setState(() {});
@@ -466,11 +467,16 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Consumer<HabitProvider>(
                 builder: (context, habitProvider, child) {
                   // Only get active habits and incomplete goals
-                  final activeHabits = habitProvider.habits.where((h) => 
-                    h.isActive &&
-                    (h.habitType == HabitType.habit || // Always show habits if active
-                     (h.habitType == HabitType.goal && !h.areAllTasksCompleted)) // Only show goals if not completed
-                  ).toList();
+                  final activeHabits = habitProvider.habits
+                      .where((h) =>
+                              h.isActive &&
+                              (h.habitType ==
+                                      HabitType
+                                          .habit || // Always show habits if active
+                                  (h.habitType == HabitType.goal &&
+                                      !h.areAllTasksCompleted)) // Only show goals if not completed
+                          )
+                      .toList();
 
                   if (activeHabits.isEmpty) {
                     return const Center(
@@ -562,38 +568,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                 )
                               else
                                 ...habit.tasks.map((task) {
-                                  // Determine if THIS TASK is on cooldown
-                                  bool onCooldown = false;
-                                  if (habit.habitType == HabitType.habit &&
-                                      habit.cooldownDurationInMinutes != null &&
-                                      habit.cooldownDurationInMinutes! > 0 &&
-                                      task.lastVerifiedTimestamp != null) {
-                                    final cooldownEndTime = task
-                                        .lastVerifiedTimestamp!
-                                        .add(Duration(
-                                            minutes: habit
-                                                .cooldownDurationInMinutes!));
-                                    onCooldown = DateTime.now()
-                                        .isBefore(cooldownEndTime);
-                                    
-                                    // If the task was completed but is no longer on cooldown,
-                                    // we need to reset its completion status for permanent habits
-                                    if (!onCooldown && 
-                                        task.isCompleted && 
-                                        habit.endDate == null) { // Check if it's a permanent habit
-                                      // Reset the completion status so it can be verified again
-                                      task.isCompleted = false;
-                                      // Keep the lastVerifiedTimestamp to track cooldown history
-                                    }
+                                  // Use task.isCoolingDown and task.cooldownDurationInMinutes
+                                  // If the task was completed but is no longer on cooldown (and it's a resettable task),
+                                  // reset its completion status for permanent habits.
+                                  if (habit.habitType == HabitType.habit && // Only for recurring habits
+                                      habit.endDate == null && // Only for permanent habits
+                                      task.cooldownDurationInMinutes != null &&
+                                      task.cooldownDurationInMinutes! > 0 && // Task has a cooldown
+                                      task.isCompleted && // Task was completed
+                                      !task.isCoolingDown) { // And is no longer cooling down
+                                    // Reset the completion status so it can be verified again
+                                    // This happens implicitly if isCoolingDown is false and it was completed.
+                                    // However, to be explicit for UI updates or other logic, you might set it here.
+                                    // For now, the main check is !task.isCoolingDown for enabling interaction.
+                                    // If task.isCompleted is true AND !task.isCoolingDown, it means it's ready again.
+                                    // The UI should reflect this, perhaps by not showing line-through if it's resettable.
                                   }
-                                  // CooldownTimerWidget will handle text display and updates
 
                                   return Padding(
                                     padding: const EdgeInsets.only(bottom: 8.0),
                                     child: InkWell(
                                       // Disable onTap only if task is on cooldown
                                       // For permanent habits, completed tasks can be verified again after cooldown
-                                      onTap: onCooldown
+                                      onTap: task.isCoolingDown
                                           ? null
                                           : () => _verifyTaskCompletion(
                                               task, habit),
@@ -606,7 +603,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             value: task.isCompleted,
                                             // Disable onChanged only if task is on cooldown
                                             // For permanent habits, completed tasks can be verified again after cooldown
-                                            onChanged: onCooldown
+                                            onChanged: task.isCoolingDown
                                                 ? null
                                                 : (_) => _verifyTaskCompletion(
                                                     task, habit),
@@ -621,11 +618,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   task.description,
                                                   style: AppTheme.pixelBodyStyle
                                                       .copyWith(
-                                                    decoration: task.isCompleted
+                                                    decoration: task.isCompleted && task.isCoolingDown // Only show line-through if completed AND still cooling down (or not resettable)
                                                         ? TextDecoration
                                                             .lineThrough
-                                                        : null,
-                                                    color: onCooldown
+                                                        : (task.isCompleted && habit.endDate != null) // For non-permanent habits, always line-through if completed
+                                                            ? TextDecoration.lineThrough
+                                                            : null,
+                                                    color: task.isCoolingDown
                                                         ? Colors.grey[600]
                                                         : Colors
                                                             .white, // Dim text if on cooldown
@@ -633,19 +632,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ),
                                                 Text(
                                                   '${task.difficulty} - ${task.estimatedTimeMinutes} min',
-                                                  style: AppTheme.pixelBodyStyle
-                                                      .copyWith(
-                                                    fontSize: 12,
-                                                    color: onCooldown
-                                                        ? Colors.grey[700]
-                                                        : Colors.white70,
+                                                    style: AppTheme.pixelBodyStyle
+                                                        .copyWith(
+                                                      fontSize: 12,
+                                                      color: task.isCoolingDown
+                                                          ? Colors.grey[700]
+                                                          : Colors.white70,
                                                   ),
                                                 ),
-                                                if (onCooldown &&
-                                                    task.lastVerifiedTimestamp !=
-                                                        null &&
-                                                    habit.cooldownDurationInMinutes !=
-                                                        null) // Ensure necessary data is present
+                                                if (task.isCoolingDown && 
+                                                    task.cooldownDurationInMinutes != null && 
+                                                    task.cooldownDurationInMinutes! > 0 &&
+                                                    task.lastVerifiedTimestamp != null) // Ensure necessary data is present
                                                   Padding(
                                                     padding:
                                                         const EdgeInsets.only(
@@ -654,8 +652,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       lastVerifiedTimestamp: task
                                                           .lastVerifiedTimestamp!, // Use task's timestamp
                                                       cooldownDurationInMinutes:
-                                                          habit
-                                                              .cooldownDurationInMinutes!, // Use habit's duration
+                                                          task.cooldownDurationInMinutes!, // Use TASK's duration
                                                     ),
                                                   ),
                                               ],
@@ -746,19 +743,24 @@ class _HomeScreenState extends State<HomeScreen> {
                       final bool canAfford = user.starCurrency >= reward.cost;
                       final status = user.consumableRewardStatus[reward.id];
                       final isOwned = user.ownedRewardIds.contains(reward.id);
-                      final bool isActuallyAvailable = reward.isAvailableForUser(status, isOwned);
+                      final bool isActuallyAvailable =
+                          reward.isAvailableForUser(status, isOwned);
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: InkWell(
                           onTap: !isActuallyAvailable || !canAfford
                               ? null
-                              : () => _showRewardConfirmation(context, reward, user),
+                              : () => _showRewardConfirmation(
+                                  context, reward, user),
                           borderRadius: BorderRadius.circular(8.0),
                           child: Container(
                             padding: const EdgeInsets.all(12.0),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(!isActuallyAvailable || !canAfford ? 0.3 : 0.6),
+                              color: Colors.black.withOpacity(
+                                  !isActuallyAvailable || !canAfford
+                                      ? 0.3
+                                      : 0.6),
                               borderRadius: BorderRadius.circular(8.0),
                               border: Border.all(
                                 color: Colors.brown[800]!,
@@ -784,21 +786,33 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: reward.iconAsset != null
                                       ? Image.asset(
                                           reward.iconAsset!,
-                                          errorBuilder: (context, error, stackTrace) =>
-                                              const Icon(Icons.diamond, size: 30, color: Colors.white70),
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  const Icon(Icons.diamond,
+                                                      size: 30,
+                                                      color: Colors.white70),
                                         )
-                                      : const Icon(Icons.star, color: Colors.amber, size: 30),
+                                      : const Icon(Icons.star,
+                                          color: Colors.amber, size: 30),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Text(reward.name, style: AppTheme.pixelBodyStyle.copyWith(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+                                      Text(reward.name,
+                                          style: AppTheme.pixelBodyStyle
+                                              .copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 18,
+                                                  color: Colors.white)),
                                       const SizedBox(height: 4),
                                       Text(
                                         reward.description,
-                                        style: AppTheme.pixelBodyStyle.copyWith(color: Colors.grey[300], fontSize: 13),
+                                        style: AppTheme.pixelBodyStyle.copyWith(
+                                            color: Colors.grey[300],
+                                            fontSize: 13),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -807,30 +821,54 @@ class _HomeScreenState extends State<HomeScreen> {
                                         children: [
                                           Text(
                                             'Cost: ${reward.cost}',
-                                            style: AppTheme.pixelBodyStyle.copyWith(color: Colors.amber, fontSize: 15, fontWeight: FontWeight.bold),
+                                            style: AppTheme.pixelBodyStyle
+                                                .copyWith(
+                                                    color: Colors.amber,
+                                                    fontSize: 15,
+                                                    fontWeight:
+                                                        FontWeight.bold),
                                           ),
                                           const SizedBox(width: 4),
-                                          Image.asset('assets/images/Accesories/starstar.png', width: 18, height: 18),
+                                          Image.asset(
+                                              'assets/images/Accesories/starstar.png',
+                                              width: 18,
+                                              height: 18),
                                         ],
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        reward.getAvailabilityTextForUser(status, isOwned),
+                                        reward.getAvailabilityTextForUser(
+                                            status, isOwned),
                                         style: AppTheme.pixelBodyStyle.copyWith(
                                           fontSize: 12,
-                                          color: isActuallyAvailable ? Colors.greenAccent : Colors.redAccent,
+                                          color: isActuallyAvailable
+                                              ? Colors.greenAccent
+                                              : Colors.redAccent,
                                         ),
                                       ),
-                                      if (!reward.isCollectible && status?.cooldownStartTime != null && reward.purchasePeriodHours != null) ...[
+                                      if (!reward.isCollectible &&
+                                          status?.cooldownStartTime != null &&
+                                          reward.purchasePeriodHours !=
+                                              null) ...[
                                         Builder(builder: (context) {
-                                          final cooldownEndTime = status!.cooldownStartTime!.add(Duration(hours: reward.purchasePeriodHours!));
-                                          final bool isOnCooldown = DateTime.now().isBefore(cooldownEndTime);
+                                          final cooldownEndTime = status!
+                                              .cooldownStartTime!
+                                              .add(Duration(
+                                                  hours: reward
+                                                      .purchasePeriodHours!));
+                                          final bool isOnCooldown =
+                                              DateTime.now()
+                                                  .isBefore(cooldownEndTime);
                                           if (isOnCooldown) {
                                             return Padding(
-                                              padding: const EdgeInsets.only(top: 4.0),
+                                              padding: const EdgeInsets.only(
+                                                  top: 4.0),
                                               child: CooldownTimerWidget(
-                                                lastVerifiedTimestamp: status.cooldownStartTime!,
-                                                cooldownDurationInMinutes: reward.purchasePeriodHours! * 60,
+                                                lastVerifiedTimestamp:
+                                                    status.cooldownStartTime!,
+                                                cooldownDurationInMinutes:
+                                                    reward.purchasePeriodHours! *
+                                                        60,
                                               ),
                                             );
                                           }
@@ -880,7 +918,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!reward.isAvailableForUser(status, isOwned)) {
       _showErrorPopup(
         context: context,
-        title: reward.isCollectible && isOwned ? 'ALREADY OWNED' : 'UNAVAILABLE',
+        title:
+            reward.isCollectible && isOwned ? 'ALREADY OWNED' : 'UNAVAILABLE',
         message: reward.getAvailabilityTextForUser(status, isOwned),
       );
       return;
@@ -891,7 +930,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _showErrorPopup(
         context: context,
         title: 'NOT ENOUGH STARS',
-        message: 'You need ${reward.cost - user.starCurrency} more stars to purchase this item!',
+        message:
+            'You need ${reward.cost - user.starCurrency} more stars to purchase this item!',
       );
       return;
     }
@@ -899,7 +939,8 @@ class _HomeScreenState extends State<HomeScreen> {
     // If user can afford, show the purchase confirmation
     showDialog(
       context: context,
-      builder: (BuildContext dialogContext) { // Renamed context to avoid conflict
+      builder: (BuildContext dialogContext) {
+        // Renamed context to avoid conflict
         return AlertDialog(
           backgroundColor: Colors.transparent,
           contentPadding: EdgeInsets.zero,
@@ -991,88 +1032,104 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       PixelButton(
                         onPressed: () async {
-                        // For Task Eraser, check if there are any active habits to delete first
-                        if (reward.id == 'task_eraser') {
-                          final habitProvider = Provider.of<HabitProvider>(context, listen: false);
-                          final activeHabits = habitProvider.habits.where((h) => h.isActive).toList();
-                          
-                          if (activeHabits.isEmpty) {
-                            // No tasks to delete, warn the user
-                            Navigator.of(dialogContext).pop(); // Close confirmation dialog
-                            _showErrorPopup(
-                              context: context,
-                              title: 'NO TASKS TO ERASE',
-                              message: 'There are no active tasks or goals to erase. Purchase canceled.',
-                            );
-                            return;
-                          }
-                        }
-                        
-                        // Check if it's a Task Eraser - we'll handle it specially
-                        final isTaskEraser = reward.id == 'task_eraser';
-                        
-                        // Close the confirmation dialog first before processing purchase
-                        // This ensures we don't have dialog stacking issues
-                        Navigator.of(dialogContext).pop();
-                        
-                        // Process the purchase with special handling for Task Eraser
-                        final success = user.purchaseReward(
-                          reward,
-                          onTaskEraserPurchased: reward.id == 'task_eraser' ? () {
-                            // Show the task eraser dialog immediately
-                            _showTaskEraserDialog(context, reward);
-                          } : reward.id == 'daily_reset_ticket' ? () {
-                            // Handle daily reset ticket
-                            _resetDailyTasks(context);
-                          } : null
-                        );
-                        
-                        // The dialog is already closed above, before the purchase processing
+                          // For Task Eraser, check if there are any active habits to delete first
+                          if (reward.id == 'task_eraser') {
+                            final habitProvider = Provider.of<HabitProvider>(
+                                context,
+                                listen: false);
+                            final activeHabits = habitProvider.habits
+                                .where((h) => h.isActive)
+                                .toList();
 
-                        if (success) {
-                          // Get reward provider for state persistence
-                          final rewardProvider = Provider.of<RewardProvider>(context, listen: false);
-                          
-                          // Explicitly save user data first to ensure persistence
-                          await UserService.saveUser(user);
-                          
-                          // Add to inventory ONLY if it's a collectible item
-                          if (reward.isCollectible) {
-                            await inventoryProvider.addItem(reward);
-                            await inventoryProvider.syncWithUser(user);
+                            if (activeHabits.isEmpty) {
+                              // No tasks to delete, warn the user
+                              Navigator.of(dialogContext)
+                                  .pop(); // Close confirmation dialog
+                              _showErrorPopup(
+                                context: context,
+                                title: 'NO TASKS TO ERASE',
+                                message:
+                                    'There are no active tasks or goals to erase. Purchase canceled.',
+                              );
+                              return;
+                            }
                           }
-                          
-                          // Explicitly save reward state in the dedicated provider for extra persistence
-                          await rewardProvider.saveRewardState(user);
-                          
-                          // Also update reward purchase tracking
-                          await rewardProvider.updateRewardPurchase(user, reward, true);
-                          
-                          // Refresh the statuses to handle any changes
-                          await rewardProvider.refreshRewardStatuses(user);
-                          
-                          // Save user again to ensure consistent state
-                          await UserService.saveUser(user);
-                          
-                          // Show success popup for consumables
-                          if (!reward.isCollectible) {
-                            _showConsumableItemPopup(context, reward);
+
+                          // Check if it's a Task Eraser - we'll handle it specially
+                          final isTaskEraser = reward.id == 'task_eraser';
+
+                          // Close the confirmation dialog first before processing purchase
+                          // This ensures we don't have dialog stacking issues
+                          Navigator.of(dialogContext).pop();
+
+                          // Process the purchase with special handling for Task Eraser
+                          final success = user.purchaseReward(reward,
+                              onTaskEraserPurchased: reward.id == 'task_eraser'
+                                  ? () {
+                                      // Show the task eraser dialog immediately
+                                      _showTaskEraserDialog(context, reward);
+                                    }
+                                  : reward.id == 'daily_reset_ticket'
+                                      ? () {
+                                          // Handle daily reset ticket
+                                          _resetDailyTasks(context);
+                                        }
+                                      : null);
+
+                          // The dialog is already closed above, before the purchase processing
+
+                          if (success) {
+                            // Get reward provider for state persistence
+                            final rewardProvider = Provider.of<RewardProvider>(
+                                context,
+                                listen: false);
+
+                            // Explicitly save user data first to ensure persistence
+                            await UserService.saveUser(user);
+
+                            // Add to inventory ONLY if it's a collectible item
+                            if (reward.isCollectible) {
+                              await inventoryProvider.addItem(reward);
+                              await inventoryProvider.syncWithUser(user);
+                            }
+
+                            // Explicitly save reward state in the dedicated provider for extra persistence
+                            await rewardProvider.saveRewardState(user);
+
+                            // Also update reward purchase tracking
+                            await rewardProvider.updateRewardPurchase(
+                                user, reward, true);
+
+                            // Refresh the statuses to handle any changes
+                            await rewardProvider.refreshRewardStatuses(user);
+
+                            // Save user again to ensure consistent state
+                            await UserService.saveUser(user);
+
+                            // Show success popup for consumables
+                            if (!reward.isCollectible) {
+                              _showConsumableItemPopup(context, reward);
+                            }
+                          } else {
+                            // Show error (e.g. if somehow became unaffordable or unavailable again)
+                            // It's good practice to re-fetch status if the purchase failed for an unknown reason
+                            final latestStatus =
+                                user.consumableRewardStatus[reward.id];
+                            final latestIsOwned =
+                                user.ownedRewardIds.contains(reward.id);
+                            _showErrorPopup(
+                              context:
+                                  context, // Use original build context for new popup
+                              title: 'PURCHASE FAILED',
+                              message: user.starCurrency < reward.cost
+                                  ? 'You no longer have enough stars.'
+                                  : reward.getAvailabilityTextForUser(
+                                      latestStatus, latestIsOwned),
+                            );
                           }
-                        } else {
-                          // Show error (e.g. if somehow became unaffordable or unavailable again)
-                          // It's good practice to re-fetch status if the purchase failed for an unknown reason
-                          final latestStatus = user.consumableRewardStatus[reward.id];
-                          final latestIsOwned = user.ownedRewardIds.contains(reward.id);
-                          _showErrorPopup(
-                            context: context, // Use original build context for new popup
-                            title: 'PURCHASE FAILED',
-                            message: user.starCurrency < reward.cost 
-                                ? 'You no longer have enough stars.' 
-                                : reward.getAvailabilityTextForUser(latestStatus, latestIsOwned),
-                          );
-                        }
                         },
-                        backgroundColor: AppTheme.greenHighlight, // Changed from AppTheme.greenButton
+                        backgroundColor: AppTheme
+                            .greenHighlight, // Changed from AppTheme.greenButton
                         child: const Text(
                           'BUY NOW',
                           style: TextStyle(
@@ -1097,46 +1154,55 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showTaskEraserDialog(BuildContext context, Reward reward) {
     final habitProvider = Provider.of<HabitProvider>(context, listen: false);
     // Only get active habits (exclude completed habits and completed goals)
-    final activeHabits = habitProvider.habits.where((h) => 
-      h.isActive && // Must be active (no end date or end date hasn't passed) 
-      (h.habitType == HabitType.habit || // Show habits
-       (h.habitType == HabitType.goal && !h.areAllTasksCompleted)) // Show goals only if not all tasks are completed
-    ).toList();
+    final activeHabits = habitProvider.habits
+        .where((h) =>
+                h
+                    .isActive && // Must be active (no end date or end date hasn't passed)
+                (h.habitType == HabitType.habit || // Show habits
+                    (h.habitType == HabitType.goal &&
+                        !h.areAllTasksCompleted)) // Show goals only if not all tasks are completed
+            )
+        .toList();
 
     // Create a filtered list of habits with only incomplete tasks
-    final filteredHabits = activeHabits.map((habit) {
-      // Create a copy of the habit with only incomplete tasks
-      final incompleteTasks = habit.tasks.where((task) => 
-        !task.isNonHabitTask && // Exclude non-habit tasks
-        task.difficulty.toLowerCase() != 'hard' // Exclude hard difficulty tasks
-      ).toList();
-      
-      if (incompleteTasks.isEmpty) return null;
-      
-      // Return a new habit object with only incomplete tasks
-      return Habit(
-        id: habit.id,
-        description: habit.description,
-        concisePromptTitle: habit.concisePromptTitle,
-        tasks: incompleteTasks,
-        createdAt: habit.createdAt,
-        habitType: habit.habitType,
-        recurrence: habit.recurrence,
-        endDate: habit.endDate,
-        weeklyTarget: habit.weeklyTarget,
-        weeklyProgress: habit.weeklyProgress,
-        lastUpdated: habit.lastUpdated,
-        cooldownDurationInMinutes: habit.cooldownDurationInMinutes,
-      );
-    }).whereType<Habit>().toList();
-    
+    final filteredHabits = activeHabits
+        .map((habit) {
+          // Create a copy of the habit with only incomplete tasks
+          final incompleteTasks = habit.tasks
+              .where((task) =>
+                      !task.isNonHabitTask && // Exclude non-habit tasks
+                      task.difficulty.toLowerCase() !=
+                          'hard' // Exclude hard difficulty tasks
+                  )
+              .toList();
+
+          if (incompleteTasks.isEmpty) return null;
+
+          // Return a new habit object with only incomplete tasks
+          return Habit(
+            id: habit.id,
+            description: habit.description,
+            concisePromptTitle: habit.concisePromptTitle,
+            tasks: incompleteTasks,
+            createdAt: habit.createdAt,
+            habitType: habit.habitType,
+            recurrence: habit.recurrence,
+            endDate: habit.endDate,
+            weeklyTarget: habit.weeklyTarget,
+            weeklyProgress: habit.weeklyProgress,
+            lastUpdated: habit.lastUpdated,
+          );
+        })
+        .whereType<Habit>()
+        .toList();
+
     if (filteredHabits.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No incomplete habits to erase')),
       );
       return;
     }
-    
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1174,13 +1240,13 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                const Text(
                   'Select Habit to Erase',
                   style: AppTheme.pixelHeadingStyle,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Choose which incomplete habit to delete:',
                   style: AppTheme.pixelBodyStyle,
                   textAlign: TextAlign.center,
@@ -1230,19 +1296,22 @@ class _HomeScreenState extends State<HomeScreen> {
                               onPressed: () async {
                                 // Close the dialog
                                 Navigator.of(context).pop();
-                                
+
                                 // Delete the habit
                                 try {
                                   await habitProvider.removeHabit(habit.id);
-                                  
+
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('"${habit.concisePromptTitle}" was erased successfully!')),
+                                    SnackBar(
+                                        content: Text(
+                                            '"${habit.concisePromptTitle}" was erased successfully!')),
                                   );
                                 } catch (e) {
                                   print("Error erasing habit: $e");
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Error erasing habit. Please try again.'),
+                                      content: Text(
+                                          'Error erasing habit. Please try again.'),
                                     ),
                                   );
                                 }
@@ -1434,6 +1503,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      if (task.detailedDescription != null && task.detailedDescription!.isNotEmpty)
+                        ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF3A3A3A),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: AppTheme.darkWood.withOpacity(0.7),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              'Details: ${task.detailedDescription}',
+                              style: AppTheme.pixelBodyStyle.copyWith(fontSize: 13, color: Colors.white.withOpacity(0.85)),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                       const Text(
                         'Describe your completion:',
                         style: AppTheme.pixelBodyStyle,
@@ -1724,7 +1814,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         // First make sure we dismiss the loading dialog - BEFORE any other actions
         _dismissLoadingDialog(loadingDialogContext, context);
-        
+
         if (isValid) {
           // Mark task complete & Award Stars and EXP
           task.isCompleted = true;
@@ -1765,23 +1855,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // Apply multipliers from consumables
           double totalMultiplier = 1.0;
-          
+
           // Apply currency multiplier if active
           if (user.attributeStats.isCurrencyMultiplierActive) {
             totalMultiplier *= user.attributeStats.currencyMultiplier;
-            print('Applying currency multiplier: ${user.attributeStats.currencyMultiplier}x');
+            print(
+                'Applying currency multiplier: ${user.attributeStats.currencyMultiplier}x');
           }
-          
+
           // Apply focus mode multiplier if active
           if (user.attributeStats.isFocusModeActive) {
             totalMultiplier *= user.attributeStats.focusModeMultiplier;
-            print('Applying focus mode multiplier: ${user.attributeStats.focusModeMultiplier}x');
+            print(
+                'Applying focus mode multiplier: ${user.attributeStats.focusModeMultiplier}x');
           }
-          
+
           // Calculate final rewards with multipliers
           int finalStarsAwarded = (starsAwarded * totalMultiplier).round();
           int finalExpAwarded = (expAwarded * totalMultiplier).round();
-          
+
           // Add the multiplied rewards
           user.addStarCurrency(finalStarsAwarded);
           user.addExp(finalExpAwarded);
@@ -1869,12 +1961,10 @@ class _HomeScreenState extends State<HomeScreen> {
           parentHabit.lastUpdated =
               DateTime.now(); // This ensures the habit is marked as updated
 
-          // If this task is part of a recurring habit with a cooldown, set the task's lastVerifiedTimestamp
-          if (parentHabit.habitType == HabitType.habit &&
-              parentHabit.cooldownDurationInMinutes != null &&
-              parentHabit.cooldownDurationInMinutes! > 0) {
-            task.lastVerifiedTimestamp =
-                DateTime.now(); // Set on the task itself
+          // If this task itself has a cooldown, set its lastVerifiedTimestamp
+          if (task.cooldownDurationInMinutes != null &&
+              task.cooldownDurationInMinutes! > 0) {
+            task.lastVerifiedTimestamp = DateTime.now();
           }
 
           // Update Habit State
@@ -1882,23 +1972,26 @@ class _HomeScreenState extends State<HomeScreen> {
           await habitProvider.updateHabit(parentHabit);
 
           // Show Success Message with active effects
-          String message = 'Task verified! +$finalStarsAwarded stars and +$finalExpAwarded EXP.';
-          
+          String message =
+              'Task verified! +$finalStarsAwarded stars and +$finalExpAwarded EXP.';
+
           // Add active consumable effects to the message
           List<String> activeEffects = [];
           if (user.attributeStats.isCurrencyMultiplierActive) {
-            int remainingMinutes = user.attributeStats.currencyMultiplierRemainingMinutes ?? 0;
+            int remainingMinutes =
+                user.attributeStats.currencyMultiplierRemainingMinutes ?? 0;
             activeEffects.add('Coin Doubler (${remainingMinutes}m remaining)');
           }
           if (user.attributeStats.isFocusModeActive) {
-            int remainingMinutes = user.attributeStats.focusModeRemainingMinutes ?? 0;
+            int remainingMinutes =
+                user.attributeStats.focusModeRemainingMinutes ?? 0;
             activeEffects.add('Focus Mode (${remainingMinutes}m remaining)');
           }
-          
+
           if (activeEffects.isNotEmpty) {
             message += '\nActive effects: ${activeEffects.join(', ')}';
           }
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(message)),
           );
@@ -1922,14 +2015,15 @@ class _HomeScreenState extends State<HomeScreen> {
       } catch (e) {
         // Close dialog if it's still open
         _dismissLoadingDialog(loadingDialogContext, context);
-        
+
         // Show error message
         print("Error verifying task: $e");
         if (context.mounted) {
           _showErrorPopup(
             context: context,
             title: 'Verification Error',
-            message: 'There was a problem connecting to the verification service. Please check your connection and try again.',
+            message:
+                'There was a problem connecting to the verification service. Please check your connection and try again.',
           );
         }
       }
@@ -2065,41 +2159,45 @@ class _HomeScreenState extends State<HomeScreen> {
                                     setDialogState(() {
                                       isLoadingInDialog = true;
                                     });
-                                    
+
                                     // Use AI service to validate the habit description
-                                    final validationResult = await context.read<AIService>()
-                                        .validateHabitDescription(originalDescription);
-                                        
+                                    final validationResult = await context
+                                        .read<AIService>()
+                                        .validateHabitDescription(
+                                            originalDescription);
+
                                     // If the description is not valid, show error and return
                                     if (!validationResult['isValid']) {
                                       // Hide loading indicator
                                       setDialogState(() {
                                         isLoadingInDialog = false;
                                       });
-                                      
+
                                       // Show error popup
                                       if (context.mounted) {
                                         // Close the dialog first
                                         Navigator.pop(dialogContext);
-                                        
+
                                         // Then show the error popup
                                         _showErrorPopup(
                                           context: context,
-                                          title: 'Invalid Goal/Habit Description',
-                                          message: validationResult['feedback'] as String? ?? 
+                                          title:
+                                              'Invalid Goal/Habit Description',
+                                          message: validationResult['feedback']
+                                                  as String? ??
                                               'Please provide a more detailed and coherent description of your goal or habit.',
                                         );
                                       }
-                                      
+
                                       // Reset state
                                       setState(() {
                                         _isAddingHabit = false;
                                         _habitController.clear();
                                       });
-                                      
+
                                       return;
                                     }
-                                    
+
                                     // If we get here, the validation passed - continue with processing
                                     // Note: we're already showing the loading indicator
 
@@ -2114,15 +2212,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
                                       if (habitData != null) {
                                         // Check if the AI deemed the habit invalid for breakdown
-                                        if (habitData.containsKey('isValid') && habitData['isValid'] == false && habitData.containsKey('reason')) {
+                                        if (habitData.containsKey('isValid') &&
+                                            habitData['isValid'] == false &&
+                                            habitData.containsKey('reason')) {
                                           if (dialogContext.mounted) {
-                                            Navigator.pop(dialogContext); // Close the loading dialog
+                                            Navigator.pop(
+                                                dialogContext); // Close the loading dialog
                                           }
                                           if (context.mounted) {
                                             _showErrorPopup(
                                               context: context,
                                               title: 'Invalid Goal/Habit',
-                                              message: habitData['reason'] as String? ?? 'The AI could not process this goal/habit. Please provide a more specific description.',
+                                              message: habitData['reason']
+                                                      as String? ??
+                                                  'The AI could not process this goal/habit. Please provide a more specific description.',
                                             );
                                           }
                                           // Reset state and return
@@ -2134,23 +2237,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                         }
 
                                         // Original logic for successful breakdown continues here
-                                        final String conciseTitle =
-                                            habitData['concisePromptTitle'] ??
-                                                originalDescription;
+                                        // Use AI suggested habit type and recurrence
                                         final String habitTypeString =
-                                            habitData['habitType'] ?? 'goal';
+                                            habitData['suggestedHabitType'] as String? ?? 'goal';
                                         final String recurrenceString =
-                                            habitData['recurrence'] ?? 'none';
+                                            habitData['suggestedRecurrence'] as String? ?? 'none';
                                         final String? endDateString =
                                             habitData['endDate'];
                                         final int? weeklyTarget =
                                             habitData['weeklyTarget'];
                                         final List<dynamic> tasksData =
                                             habitData['tasks'] ?? [];
-                                        final int? cooldownDurationInMinutes =
-                                            habitData[
-                                                    'cooldownDurationInMinutes']
-                                                as int?;
+                                        // final int? cooldownDurationInMinutes = habitData['cooldownDurationInMinutes'] as int?; // Removed, habit-level cooldown is no longer used
 
                                         final HabitType habitType =
                                             HabitType.values.firstWhere(
@@ -2173,24 +2271,44 @@ class _HomeScreenState extends State<HomeScreen> {
                                         final List<HabitTask> habitTasks =
                                             tasksData
                                                 .map((taskMap) {
-                                                  if (taskMap is Map) { // Check if it's any kind of Map
-                                                    final typedTaskMap = Map<String, dynamic>.from(taskMap); // Explicitly cast to Map<String, dynamic>
+                                                  if (taskMap is Map) {
+                                                    // Check if it's any kind of Map
+                                                    final typedTaskMap = Map<
+                                                            String,
+                                                            dynamic>.from(
+                                                        taskMap); // Explicitly cast to Map<String, dynamic>
                                                     int estimatedMinutes = 0;
                                                     // Use typedTaskMap for accessing 'estimatedTime'
-                                                    if (typedTaskMap['estimatedTime'] is int) {
-                                                      estimatedMinutes = typedTaskMap['estimatedTime'] as int;
-                                                    } else if (typedTaskMap['estimatedTime'] is String) {
-                                                      estimatedMinutes = int.tryParse(typedTaskMap['estimatedTime'].toString()) ?? 0;
+                                                    if (typedTaskMap[
+                                                            'estimatedTime']
+                                                        is int) {
+                                                      estimatedMinutes =
+                                                          typedTaskMap[
+                                                                  'estimatedTime']
+                                                              as int;
+                                                    } else if (typedTaskMap[
+                                                            'estimatedTime']
+                                                        is String) {
+                                                      estimatedMinutes =
+                                                          int.tryParse(typedTaskMap[
+                                                                      'estimatedTime']
+                                                                  .toString()) ??
+                                                              0;
                                                     }
+                                                    final int? taskCooldownMinutes = typedTaskMap['taskCooldownDurationInMinutes'] as int?;
 
                                                     return HabitTask(
                                                       id: uuid.v4(),
                                                       // Use typedTaskMap for accessing description and difficulty keys
-                                                      description: typedTaskMap['taskName']?.toString() ?? 
-                                                                   typedTaskMap['taskDescription']?.toString() ?? 
-                                                                   'Unnamed Task',
-                                                      difficulty: typedTaskMap['taskDifficulty']?.toString() ?? 'Medium',
-                                                      estimatedTimeMinutes: estimatedMinutes,
+                                                      description: typedTaskMap['taskName']?.toString() ?? 'Unnamed Task',
+                                                      detailedDescription: typedTaskMap['taskDescription']?.toString(),
+                                                      difficulty: typedTaskMap[
+                                                                  'taskDifficulty']
+                                                              ?.toString() ??
+                                                          'Medium',
+                                                      estimatedTimeMinutes:
+                                                          estimatedMinutes,
+                                                      cooldownDurationInMinutes: taskCooldownMinutes,
                                                     );
                                                   } else {
                                                     print(
@@ -2204,15 +2322,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                         final newHabit = Habit(
                                           id: uuid.v4(),
                                           description: originalDescription,
-                                          concisePromptTitle: conciseTitle,
+                                          concisePromptTitle: habitData['title'] as String? ?? originalDescription,
                                           tasks: habitTasks,
                                           createdAt: DateTime.now(),
                                           habitType: habitType,
                                           recurrence: recurrence,
                                           endDate: endDate,
                                           weeklyTarget: weeklyTarget,
-                                          cooldownDurationInMinutes:
-                                              cooldownDurationInMinutes,
+                                          // cooldownDurationInMinutes removed from Habit constructor
                                           // lastVerifiedTimestamp will be set when a habit is completed/verified
                                         );
 
@@ -2417,7 +2534,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Helper method to safely dismiss loading dialogs
-  void _dismissLoadingDialog(BuildContext? dialogContext, BuildContext parentContext) {
+  void _dismissLoadingDialog(
+      BuildContext? dialogContext, BuildContext parentContext) {
     if (dialogContext != null && parentContext.mounted) {
       try {
         if (Navigator.of(dialogContext, rootNavigator: true).canPop()) {
@@ -2497,15 +2615,15 @@ class _HomeScreenState extends State<HomeScreen> {
   // Add this new method to handle daily task reset
   void _resetDailyTasks(BuildContext context) {
     final habitProvider = Provider.of<HabitProvider>(context, listen: false);
-    final habits = habitProvider.habits.where((h) => 
-      h.recurrence == Recurrence.daily && 
-      h.isActive && 
-      h.cooldownDurationInMinutes != null &&
-      h.cooldownDurationInMinutes! > 0 &&
-      h.tasks.any((t) => t.lastVerifiedTimestamp != null)
-    ).toList();
+    // Filter habits that are daily, active, and have at least one task currently cooling down.
+    final List<Habit> habitsWithCoolingTasks = habitProvider.habits.where((habit) {
+      if (habit.recurrence == Recurrence.daily && habit.isActive) {
+        return habit.tasks.any((task) => task.isCoolingDown);
+      }
+      return false;
+    }).toList();
 
-    if (habits.isEmpty) {
+    if (habitsWithCoolingTasks.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No daily tasks with active cooldowns to reset.'),
@@ -2553,13 +2671,13 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                const Text(
                   'Reset Task Cooldown',
                   style: AppTheme.pixelHeadingStyle,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Choose which daily task\'s cooldown to reset:',
                   style: AppTheme.pixelBodyStyle,
                   textAlign: TextAlign.center,
@@ -2568,9 +2686,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 Flexible(
                   child: ListView.builder(
                     shrinkWrap: true,
-                    itemCount: habits.length,
+                    itemCount: habitsWithCoolingTasks.length,
                     itemBuilder: (context, index) {
-                      final habit = habits[index];
+                      final habit = habitsWithCoolingTasks[index];
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
                         color: Colors.brown.withOpacity(0.7),
@@ -2586,44 +2704,49 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             ),
-                            ...habit.tasks.where((t) => t.lastVerifiedTimestamp != null).map((task) => 
-                              ListTile(
-                                title: Text(
-                                  task.description,
-                                  style: AppTheme.pixelBodyStyle,
-                                ),
-                                subtitle: Text(
-                                  'Cooldown: ${habit.cooldownDurationInMinutes} minutes',
-                                  style: AppTheme.pixelBodyStyle.copyWith(
-                                    fontSize: 12,
-                                    color: Colors.grey[300],
+                            ...habit.tasks
+                                .where((task) => task.isCoolingDown) // Filter for tasks actually cooling down
+                                .map(
+                                  (task) => ListTile(
+                                    title: Text(
+                                      task.description,
+                                      style: AppTheme.pixelBodyStyle,
+                                    ),
+                                    subtitle: Text(
+                                      'Cooldown: ${task.cooldownDurationInMinutes ?? 0} minutes',
+                                      style: AppTheme.pixelBodyStyle.copyWith(
+                                        fontSize: 12,
+                                        color: Colors.grey[300],
+                                      ),
+                                    ),
+                                    trailing: PixelButton(
+                                      width: 80,
+                                      height: 36,
+                                      backgroundColor: AppTheme.blueHighlight,
+                                      onPressed: () {
+                                        // Reset both the cooldown and completion status
+                                        task.lastVerifiedTimestamp = null;
+                                        task.isCompleted = false;
+                                        habitProvider.updateHabit(habit);
+
+                                        // Close the dialog
+                                        Navigator.of(context).pop();
+
+                                        // Show success message
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                                'Cooldown for "${task.description}" has been reset!'),
+                                            duration:
+                                                const Duration(seconds: 3),
+                                          ),
+                                        );
+                                      },
+                                      child: const Text('Reset'),
+                                    ),
                                   ),
                                 ),
-                                trailing: PixelButton(
-                                  width: 80,
-                                  height: 36,
-                                  backgroundColor: AppTheme.blueHighlight,
-                                  onPressed: () {
-                                    // Reset both the cooldown and completion status
-                                    task.lastVerifiedTimestamp = null;
-                                    task.isCompleted = false;
-                                    habitProvider.updateHabit(habit);
-                                    
-                                    // Close the dialog
-                                    Navigator.of(context).pop();
-                                    
-                                    // Show success message
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Cooldown for "${task.description}" has been reset!'),
-                                        duration: const Duration(seconds: 3),
-                                      ),
-                                    );
-                                  },
-                                  child: const Text('Reset'),
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       );

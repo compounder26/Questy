@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:cloud_functions/cloud_functions.dart';
+// import 'package:google_generative_ai/google_generative_ai.dart'; // Reverted to Firebase Functions
 // Removed: import 'package:flutter/services.dart' show rootBundle; // No longer needed for service account
 // Removed: import 'package:googleapis_auth/auth_io.dart' as auth; // No longer needed
 // Removed: import '../utils/api_config_bridge.dart'; // No longer needed
@@ -9,6 +10,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 // but are part of the broader application logic that consumes this service's output.
 
 class AIService {
+  // API key and GenerativeModel are no longer managed here; Firebase Functions handles it.
   // Initialize Firebase Functions, targeting the region of your 'chatWithGemini' function
   final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(
       region:
@@ -17,7 +19,9 @@ class AIService {
   // The model name is now managed by the Firebase function ('gemini-2.0-flash' as per functions/index.js)
 
   AIService() {
-    // No async initialization needed here anymore
+    // Constructor is now simpler as API key and model are managed by Firebase Functions.
+    // The _functions field (FirebaseFunctions.instanceFor) is already initialized.
+    print("AIService initialized to use Firebase Functions via _callFirebaseGemini.");
   }
 
   Future<Map<String, dynamic>?> _callFirebaseGemini(
@@ -37,27 +41,49 @@ class AIService {
       if (result.data != null &&
           result.data['success'] == true &&
           result.data['message'] != null) {
-        // The 'message' from Firebase should be the direct JSON object from Gemini
-        if (result.data['message'] is Map) { // More general Map check
-          try {
-            // Attempt to cast to Map<String, dynamic>
-            return Map<String, dynamic>.from(result.data['message'] as Map);
-          } catch (e) {
-            print("[$callingFunctionName] Error casting 'message' from Map to Map<String, dynamic>: $e");
+        // The 'message' from Firebase can be a single JSON object or a list of them.
+        dynamic messageData = result.data['message'];
+
+        if (messageData is List) {
+          if (messageData.isNotEmpty) {
+            // If it's a list, take the first element
+            dynamic firstItem = messageData[0];
+            if (firstItem is Map) {
+              try {
+                return Map<String, dynamic>.from(firstItem);
+              } catch (e) {
+                print(
+                    "[$callingFunctionName] Error casting first item of 'message' list to Map<String, dynamic>: $e");
+                return null;
+              }
+            } else {
+              print(
+                  "[$callingFunctionName] First item in 'message' list is not a Map: ${firstItem.runtimeType}");
+              return null;
+            }
+          } else {
+            print("[$callingFunctionName] 'message' list is empty.");
             return null;
           }
-        } else if (result.data['message'] is String) {
-          // If it's a string, try to parse it (though Firebase function should return object)
+        } else if (messageData is Map) { // Existing logic for single Map
           try {
-            return jsonDecode(result.data['message']) as Map<String, dynamic>;
+            return Map<String, dynamic>.from(messageData);
           } catch (e) {
             print(
-                "[$callingFunctionName] Error decoding 'message' string from Firebase: $e. Message was: ${result.data['message']}");
+                "[$callingFunctionName] Error casting 'message' from Map to Map<String, dynamic>: $e");
+            return null;
+          }
+        } else if (messageData is String) { // Existing logic for String (JSON parse)
+          try {
+            return jsonDecode(messageData) as Map<String, dynamic>;
+          } catch (e) {
+            print(
+                "[$callingFunctionName] Error decoding 'message' string from Firebase: $e. Message was: $messageData");
             return null;
           }
         } else {
           print(
-              "[$callingFunctionName] Firebase function 'message' is not a Map or String: ${result.data['message'].runtimeType}");
+              "[$callingFunctionName] Firebase function 'message' is not a List, Map, or String: ${messageData.runtimeType}");
           return null;
         }
       } else {
@@ -81,97 +107,124 @@ class AIService {
 
   Future<Map<String, dynamic>?> breakDownHabit(String habitDescription) async {
     final prompt = '''
-    System Prompt: Gamified Self-Improvement Framework
+  System Prompt: Gamified Self-Improvement Framework
 
-    I. Overview:
-    You are to understand and operate within a gamified self-improvement system designed to help users develop positive habits and track their progress. The system revolves around creating structured tasks, assigning them to relevant character attributes, and defining their difficulty and recurrence. The core principle is to reflect real-world progress in a gradual and fair manner.
+  I. Overview:
+  You are to understand and operate within a gamified self-improvement system designed to help users develop positive habits and track their progress. The system revolves around creating structured tasks, assigning them to relevant character attributes, and defining their difficulty and recurrence. The core principle is to reflect real-world progress in a gradual and fair manner.
 
-    II. Core Character Attributes (Stats):
-    Users will earn points for the following attributes based on the tasks they complete. The mnemonic for these attributes is HICCUP.
+  II. Core Character Attributes (Stats):
+  Users will earn points for the following attributes based on the tasks they complete. The mnemonic for these attributes is HICCUP.
 
-        Health (H)
-            Description: Reflects the user's physical well-being and healthy lifestyle choices. This attribute increases when the user completes tasks related to maintaining physical health, such as proper diet, adequate sleep, and light fitness activities focused on upkeep rather than building muscle or strength.
-            Goal: To foster sustainable healthy living habits.
+      Health (H)
+          Description: Reflects the user's physical well-being and healthy lifestyle choices. This attribute increases when the user completes tasks related to maintaining physical health, such as proper diet, adequate sleep, and light fitness activities focused on upkeep rather than building muscle or strength.
+          Goal: To foster sustainable healthy living habits.
 
-        Intelligence (I)
-            Description: Reflects the user's development of knowledge and skills. This attribute increases when the user engages in activities such as learning, reading, attending classes, or writing.
-            Focus: Intellectual growth and self-development.
+      Intelligence (I)
+          Description: Reflects the user's development of knowledge and skills. This attribute increases when the user engages in activities such as learning, reading, attending classes, or writing.
+          Focus: Intellectual growth and self-development.
 
-        Cleanliness (C)
-            Description: Measures the user's discipline in maintaining personal hygiene and environmental tidiness. Points are gained from activities like cleaning the house, doing laundry, or practicing neat personal habits.
-            Association: Cleanliness is associated with peace of mind and an orderly life.
+      Cleanliness (C)
+          Description: Measures the user's discipline in maintaining personal hygiene and environmental tidiness. Points are gained from activities like cleaning the house, doing laundry, or practicing neat personal habits.
+          Association: Cleanliness is associated with peace of mind and an orderly life.
 
-        Charisma (C)
-            Description: Represents the user's social interaction skills, self-confidence, and presence as perceived by others. This stat increases through activities involving communication, teamwork, or public speaking.
-            Suitability: Ideal for building connections and interpersonal skills.
+      Charisma (C)
+          Description: Represents the user's social interaction skills, self-confidence, and presence as perceived by others. This stat increases through activities involving communication, teamwork, or public speaking.
+          Suitability: Ideal for building connections and interpersonal skills.
 
-        Unity (U)
-            Description: Represents the user's inner state, mental well-being, and peace. This stat increases through activities such as meditation, journaling, taking breaks from social media, or spiritual practices.
-            Goal: Helps the user maintain stable mental health and life focus.
+      Understanding (U) - Note: This was missing from the original prompt's list but is implied by HICCUP.
+          Description: Pertains to empathy, emotional intelligence, and comprehending complex social or personal situations. Tasks might involve active listening, conflict resolution, or understanding different perspectives.
 
-        Power (P)
-            Description: Focuses on the user's physical strength, stamina, and energy. This stat increases when the user performs active physical tasks like sports, workouts, or strenuous activities.
-            Emphasis: Physical development and training discipline.
+      Productivity (P) - Note: This was missing from the original prompt's list but is implied by HICCUP.
+          Description: Focuses on efficiency, task management, and achieving goals. Tasks could include planning, time management techniques, or completing work-related objectives.
 
-    III. Task Breakdown Instructions:
-    Given a user's habit description, break it down into 3-5 actionable, specific, and measurable tasks. For each task:
-    1.  Define a clear "taskName".
-    2.  Suggest a "taskDescription" that elaborates on how to perform the task.
-    3.  Determine the primary "taskAttribute" from HICCUP that this task develops.
-    4.  Assign a "taskDifficulty" (Easy, Medium, Hard).
-    5.  Suggest a "taskRecurrence" (Daily, Weekly, Monthly, Once).
+  User's Habit to Break Down: "$habitDescription"
 
-    User's Habit Description: "$habitDescription"
+  Based on the user's habit described above ("$habitDescription"), provide a breakdown into specific, actionable tasks. 
+  Generate a concise and meaningful title for this habit (max 3-5 words) based on "$habitDescription".
+  The output MUST be a SINGLE JSON object structured as shown in the example below, focusing ONLY on the user's provided habit: "$habitDescription".
+  Do NOT suggest other habits or return a list of habits.
 
-    Respond with ONLY a JSON object containing a single key "tasks". The value of "tasks" should be an array of JSON objects, where each object represents a task and has the following keys:
-    - "taskName": string
-    - "taskDescription": string
-    - "taskAttribute": string (must be one of H, I, C, C, U, P)
-    - "taskDifficulty": string (must be one of Easy, Medium, Hard)
-    - "taskRecurrence": string (must be one of Daily, Weekly, Monthly, Once)
-
-    Do not use markdown code fences.
-    Example:
-    {
-      "tasks": [
-        {
-          "taskName": "Read 1 Chapter",
-          "taskDescription": "Read one chapter from 'Atomic Habits' focusing on habit formation techniques.",
-          "taskAttribute": "I",
-          "taskDifficulty": "Medium",
-          "taskRecurrence": "Daily"
-        },
-        {
-          "taskName": "Morning Hydration",
-          "taskDescription": "Drink a full glass of water immediately after waking up.",
-          "taskAttribute": "H",
-          "taskDifficulty": "Easy",
-          "taskRecurrence": "Daily"
-        }
-      ]
-    }
-    ''';
-
-    final List<Map<String, dynamic>> requestParts = [
-      {'text': prompt}
-    ];
-    final aiResponse = await _callFirebaseGemini(requestParts,
-        callingFunctionName: 'breakDownHabit');
-
-    if (aiResponse != null &&
-        aiResponse.containsKey('tasks') &&
-        aiResponse['tasks'] is List) {
-      // Basic validation of the structure
-      final tasksList = aiResponse['tasks'] as List;
-      if (tasksList
-          .every((task) => task is Map && task.containsKey('taskName'))) {
-        return aiResponse;
+  JSON Response Structure (MANDATORY for the habit "$habitDescription"):
+  {
+    "title": "[AI-generated concise title, max 3-5 words, based on '$habitDescription']", // AI should generate a meaningful, short title here.
+    "suggestedHabitType": "habit", // Or "goal" if more appropriate
+    "suggestedRecurrence": "daily", // Or "weekly", "monthly", "once" as appropriate for the habit
+    "tasks": [
+      {
+        "taskName": "Specific Task Name 1",
+        "taskDescription": "Detailed description of task 1 related to '$habitDescription'.",
+        "taskAttribute": "H/I/C/C/U/P", // Choose one from HICCUP
+        "taskDifficulty": "Easy/Medium/Hard",
+        "taskRecurrence": "Daily/Weekly/Monthly/Once",
+        "estimatedTime": 0, // Estimated time in minutes
+        "taskCooldownDurationInMinutes": 0 // Cooldown in minutes. 0 or omit if no cooldown.
+      },
+      {
+        "taskName": "Specific Task Name 2",
+        "taskDescription": "Detailed description of task 2 related to '$habitDescription'.",
+        "taskAttribute": "H/I/C/C/U/P",
+        "taskDifficulty": "Easy/Medium/Hard",
+        "taskRecurrence": "Daily/Weekly/Monthly/Once",
+        "estimatedTime": 0,
+        "taskCooldownDurationInMinutes": 0
       }
-    }
-    print(
-        "Error or unexpected structure in breakDownHabit AI response: $aiResponse");
-    return null; // Fallback if AI response is not as expected
+      // ... potentially more tasks ...
+    ]
   }
+
+  For each task, include 'taskCooldownDurationInMinutes'. This is the cooldown in minutes before the task can be repeated. For one-time actions or tasks without cooldowns, set it to 0 or omit it.
+
+  Ensure your response is a SINGLE, valid JSON object representing the breakdown of "$habitDescription" and nothing else. Do not use markdown code fences in the response.
+  ''';
+    try {
+      // The prompt variable already contains the full system and user prompt.
+      // We need to wrap it in the structure expected by _callFirebaseGemini's 'parts' parameter.
+      final List<Map<String, dynamic>> requestParts = [
+        {'text': prompt} // This structure assumes your Firebase function 'chatWithGemini'
+                         // expects an object with a 'parts' key, which is an array of such text objects.
+      ];
+
+      // print('AIService: Calling _callFirebaseGemini for breakDownHabit...');
+      final Map<String, dynamic>? firebaseResponse = await _callFirebaseGemini(
+        requestParts,
+        callingFunctionName: 'breakDownHabit',
+      );
+
+      if (firebaseResponse == null) {
+        print('AIService: Received null response from _callFirebaseGemini for breakDownHabit.');
+        return null;
+      }
+
+      // _callFirebaseGemini should return the parsed JSON content of 'message' from the Firebase Function response.
+      // So, firebaseResponse *is* the jsonResponse we need for further validation.
+      // print('AIService: Parsed JSON response from _callFirebaseGemini for breakDownHabit: $firebaseResponse');
+
+      // Basic validation for the expected fields from the AI (via Firebase)
+      if (firebaseResponse.containsKey('title') &&
+          firebaseResponse.containsKey('suggestedHabitType') &&
+          firebaseResponse.containsKey('suggestedRecurrence') &&
+          firebaseResponse.containsKey('tasks') &&
+          firebaseResponse['tasks'] is List) {
+        final tasksList = firebaseResponse['tasks'] as List;
+        // Further check if tasksList is not empty before calling every, to prevent error on empty list.
+        if (tasksList.isEmpty || tasksList.every((task) => task is Map && task.containsKey('taskName'))) {
+          return firebaseResponse; // This is the AI's structured JSON response
+        } else {
+          print('AIService: Tasks list validation failed (e.g. task missing taskName) in breakDownHabit after Firebase call.');
+        }
+      } else {
+        print('AIService: Required keys (title, suggestedHabitType, suggestedRecurrence, tasks) missing in AI response for breakDownHabit after Firebase call: $firebaseResponse');
+      }
+      return null; // Fallback if validation fails
+
+    } catch (e, stackTrace) {
+      // This catch block handles unexpected errors during the processing of firebaseResponse itself,
+      // or if _callFirebaseGemini threw an unhandled exception (though it's designed to return null on error).
+      print('AIService: Error processing response in breakDownHabit after Firebase call: $e');
+      print('AIService: Stack trace: $stackTrace');
+      return null;
+    }
+}  
 
   Future<Map<String, dynamic>> verifyTaskCompletion({
     required String taskDescription, // This is the original task's description
